@@ -6,6 +6,7 @@ import { LightRenderer } from '../runtime/LightRenderer'
 import { RendererSettings } from '../runtime/RendererSettings'
 import { LightStudioStoreProvider, useStudio } from './context'
 import { LightHelpers } from './helpers/LightHelpers'
+import { LightGizmo } from './LightGizmo'
 import { LightHandles } from './LightHandles'
 
 interface DebugLayerProps {
@@ -50,6 +51,7 @@ function StudioScene({ applyRenderer }: { applyRenderer: boolean }) {
       <LightRenderer lights={lights} />
       <LightHelpers />
       <LightHandles />
+      <LightGizmo />
     </>
   )
 }

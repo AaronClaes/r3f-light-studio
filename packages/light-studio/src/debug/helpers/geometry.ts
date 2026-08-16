@@ -13,6 +13,11 @@ import type { Vec3 } from '../../core/schema'
 
 const RIM_SEGMENTS = 32
 const CONE_SPOKES = 4
+const RING_DASHES = 12
+/** Fraction of each dash-plus-gap that is drawn. */
+const RING_DASH_DUTY = 0.55
+/** Segments per dash — enough that a dash reads as an arc, not a chord. */
+const RING_DASH_STEPS = 3
 
 function fromPairs(positions: number[]): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry()
@@ -38,13 +43,6 @@ export function wireLine(from: Vec3, to: Vec3): THREE.BufferGeometry {
   return fromPairs([...from, ...to])
 }
 
-export function wireOctahedron(radius: number): THREE.BufferGeometry {
-  const solid = new THREE.OctahedronGeometry(radius)
-  const edges = new THREE.EdgesGeometry(solid)
-  solid.dispose()
-  return edges
-}
-
 /** Centred on the origin in the XY plane, so an aimed group faces it at the target. */
 export function wireRectangle(width: number, height: number): THREE.BufferGeometry {
   const x = width / 2
@@ -63,6 +61,44 @@ export function wireCone(radius: number, length: number): THREE.BufferGeometry {
   }
 
   return fromPairs(positions)
+}
+
+/**
+ * A ring of short arcs with gaps between them, in the XY plane.
+ *
+ * The dashes are baked into the geometry rather than drawn with
+ * `LineDashedMaterial`, whose dash length is measured in local units — a handle
+ * rescales every frame to hold its size on screen, which would make real dashes
+ * stretch and crawl as you move the camera.
+ */
+export function dashedCircle(radius: number): THREE.BufferGeometry {
+  const positions: number[] = []
+  const dashSweep = ((Math.PI * 2) / RING_DASHES) * RING_DASH_DUTY
+
+  for (let dash = 0; dash < RING_DASHES; dash += 1) {
+    const start = (dash / RING_DASHES) * Math.PI * 2
+
+    for (let step = 0; step < RING_DASH_STEPS; step += 1) {
+      const from = start + (step / RING_DASH_STEPS) * dashSweep
+      const to = start + ((step + 1) / RING_DASH_STEPS) * dashSweep
+      positions.push(
+        Math.cos(from) * radius,
+        Math.sin(from) * radius,
+        0,
+        Math.cos(to) * radius,
+        Math.sin(to) * radius,
+        0,
+      )
+    }
+  }
+
+  return fromPairs(positions)
+}
+
+/** A square stood on its corner, in the XY plane. */
+export function wireDiamond(radius: number): THREE.BufferGeometry {
+  const r = radius
+  return fromPairs([r, 0, 0, 0, r, 0, 0, r, 0, -r, 0, 0, -r, 0, 0, 0, -r, 0, 0, -r, 0, r, 0, 0])
 }
 
 /** Three great circles — cheaper to read than a wireframe sphere. */

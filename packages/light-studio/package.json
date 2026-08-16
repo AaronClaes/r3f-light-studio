@@ -22,6 +22,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@react-three/drei": "catalog:",
     "zustand": "catalog:"
   },
   "devDependencies": {

@@ -37,6 +37,12 @@ export interface StudioState {
   dirty: boolean
   past: LightSetup[]
   future: LightSetup[]
+  /**
+   * The setup as it was when a drag or slider scrub began, or null when no
+   * edit is in flight. Everything committed while this is open collapses into
+   * a single undo step.
+   */
+  transaction: LightSetup | null
 
   select: (id: string | null, field?: VectorField) => void
   toggleSolo: (id: string) => void
@@ -47,6 +53,26 @@ export interface StudioState {
   removeLight: (id: string) => void
   duplicateLight: (id: string) => string | null
   setRenderer: (patch: Partial<RendererConfig>) => void
+
+  /** Start coalescing edits. Nested calls keep the outermost snapshot. */
+  beginTransaction: () => void
+  /**
+   * Stop coalescing and push one history entry. Returns whether anything
+   * actually changed, which tells a drag apart from a click that missed.
+   */
+  endTransaction: () => boolean
+
+  /**
+   * True when the gizmo took the press behind the click being handled now.
+   *
+   * r3f reports a click as a miss on every object it did not hit, and the
+   * gizmo is not one of r3f's objects — so without this, tapping a gizmo axis
+   * would clear the very selection the gizmo is attached to.
+   */
+  gizmoTookClick: boolean
+  claimClick: () => void
+  /** Reads the claim and clears it. */
+  takeClick: () => boolean
 
   undo: () => void
   redo: () => void
@@ -66,6 +92,10 @@ export function createLightStudioStore(initial: LightSetup) {
       set((state) => {
         const draft = structuredClone(state.setup)
         mutate(draft)
+
+        // Inside a transaction the history entry is pushed once, on end.
+        if (state.transaction) return { setup: draft, dirty: true }
+
         return {
           setup: draft,
           past: [...state.past, state.setup].slice(-HISTORY_LIMIT),
@@ -82,6 +112,8 @@ export function createLightStudioStore(initial: LightSetup) {
       dirty: false,
       past: [],
       future: [],
+      transaction: null,
+      gizmoTookClick: false,
 
       select: (id, field = 'position') =>
         set(id === null ? NO_SELECTION : { selectedId: id, selectedField: field }),
@@ -140,6 +172,36 @@ export function createLightStudioStore(initial: LightSetup) {
           draft.renderer = { ...DEFAULT_RENDERER, ...draft.renderer, ...patch }
         }),
 
+      beginTransaction: () =>
+        set((state) => (state.transaction ? state : { transaction: state.setup })),
+
+      endTransaction: () => {
+        const state = get()
+        if (!state.transaction) return false
+
+        // `commit` always replaces `setup` with a clone, so an unchanged
+        // identity means the drag moved nothing. Don't record an empty step.
+        if (state.transaction === state.setup) {
+          set({ transaction: null })
+          return false
+        }
+
+        set({
+          transaction: null,
+          past: [...state.past, state.transaction].slice(-HISTORY_LIMIT),
+          future: [],
+        })
+        return true
+      },
+
+      claimClick: () => set({ gizmoTookClick: true }),
+
+      takeClick: () => {
+        if (!get().gizmoTookClick) return false
+        set({ gizmoTookClick: false })
+        return true
+      },
+
       undo: () =>
         set((state) => {
           const previous = state.past.at(-1)
@@ -177,6 +239,7 @@ export function createLightStudioStore(initial: LightSetup) {
           dirty: false,
           past: [],
           future: [],
+          transaction: null,
           ...NO_SELECTION,
           soloIds: [],
         }),
