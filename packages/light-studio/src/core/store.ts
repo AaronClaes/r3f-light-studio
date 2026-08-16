@@ -45,7 +45,11 @@ export interface StudioState {
   transaction: LightSetup | null
 
   select: (id: string | null, field?: VectorField) => void
-  toggleSolo: (id: string) => void
+  /**
+   * Set rather than toggle, so dragging across a column of them can repeat the
+   * same value over a row it has already reached without flipping it back.
+   */
+  setSolo: (id: string, on: boolean) => void
   clearSolo: () => void
 
   updateLight: (id: string, patch: LightPatch) => void
@@ -118,12 +122,13 @@ export function createLightStudioStore(initial: LightSetup) {
       select: (id, field = 'position') =>
         set(id === null ? NO_SELECTION : { selectedId: id, selectedField: field }),
 
-      toggleSolo: (id) =>
-        set((state) => ({
-          soloIds: state.soloIds.includes(id)
-            ? state.soloIds.filter((solo) => solo !== id)
-            : [...state.soloIds, id],
-        })),
+      setSolo: (id, on) =>
+        set((state) => {
+          if (state.soloIds.includes(id) === on) return state
+          return {
+            soloIds: on ? [...state.soloIds, id] : state.soloIds.filter((solo) => solo !== id),
+          }
+        }),
 
       clearSolo: () => set({ soloIds: [] }),
 

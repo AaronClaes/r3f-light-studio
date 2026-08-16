@@ -1,7 +1,6 @@
 import { useEffect, useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
 
-import { visibleLights } from '../../core/lights'
 import type {
   DirectionalLightConfig,
   HemisphereLightConfig,
@@ -12,6 +11,7 @@ import type {
   Vec3,
 } from '../../core/schema'
 import { useStudio } from '../context'
+import { useDrawnLights } from '../drawnLights'
 import { wireCone, wireLine, wireRectangle, wireSphere } from './geometry'
 
 /**
@@ -37,9 +37,9 @@ const ROLE = { primary: 1, secondary: 0.6, range: 0.35 }
  * Everything else stays visible enough to find and read as a rig, without a
  * dozen helpers competing for attention the moment you turn `debug` on.
  *
- * `dimmed` is a light that is off, or muted by someone else's solo.
+ * There is no third level for a light that is off: it is not drawn at all.
  */
-const EMPHASIS = { selected: 1, idle: 0.28, dimmed: 0.12 }
+const EMPHASIS = { selected: 1, idle: 0.28 }
 
 type Emphasis = keyof typeof EMPHASIS
 
@@ -49,35 +49,24 @@ function opacityOf(role: keyof typeof ROLE, emphasis: Emphasis): number {
 
 /**
  * Built from the config rather than from the rendered three lights. Nothing
- * here reads the scene graph, so the helpers also work for lights that are
- * switched off — which is what makes them findable again.
+ * here reads the scene graph, so a helper never has to be kept in sync with a
+ * light object, and a selected light draws whether or not it is switched on.
  */
 export function LightHelpers() {
-  const lights = useStudio((state) => state.setup.lights)
-  const soloIds = useStudio((state) => state.soloIds)
+  const drawn = useDrawnLights()
   const selectedId = useStudio((state) => state.selectedId)
-
-  const lit = useMemo(
-    () => new Set(visibleLights(lights, soloIds).map((light) => light.id)),
-    [lights, soloIds],
-  )
 
   return (
     <>
-      {lights.map((light) => (
+      {drawn.map((light) => (
         <LightHelper
           key={light.id}
-          emphasis={emphasisOf(light.id, selectedId, lit)}
+          emphasis={light.id === selectedId ? 'selected' : 'idle'}
           light={light}
         />
       ))}
     </>
   )
-}
-
-function emphasisOf(id: string, selectedId: string | null, lit: ReadonlySet<string>): Emphasis {
-  if (id === selectedId) return 'selected'
-  return lit.has(id) ? 'idle' : 'dimmed'
 }
 
 interface HelperProps<T extends LightConfig = LightConfig> {

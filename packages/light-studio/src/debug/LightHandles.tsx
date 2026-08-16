@@ -4,6 +4,7 @@ import * as THREE from 'three'
 
 import type { Vec3, VectorField } from '../core/schema'
 import { useStudio, useStudioStore } from './context'
+import { useDrawnLights } from './drawnLights'
 import { dashedCircle, wireDiamond } from './helpers/geometry'
 
 /** Ring radius as a fraction of the viewport height. */
@@ -24,9 +25,12 @@ const IDLE_OPACITY = 0.55
  *
  * Which points exist is derived from the schema rather than from a per-type
  * switch — a light has a handle for each vector field it actually declares.
+ *
+ * A light that is off, or muted by someone else's solo, has no handles: it is
+ * not drawn at all, and the outliner is where you pick it up again.
  */
 export function LightHandles() {
-  const lights = useStudio((state) => state.setup.lights)
+  const lights = useDrawnLights()
   const store = useStudioStore()
 
   return (

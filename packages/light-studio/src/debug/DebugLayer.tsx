@@ -1,3 +1,4 @@
+import { useCreateStore } from 'leva'
 import { useEffect, useState } from 'react'
 
 import type { LightSetup } from '../core/schema'
@@ -8,6 +9,8 @@ import { LightStudioStoreProvider, useStudio } from './context'
 import { LightHelpers } from './helpers/LightHelpers'
 import { LightGizmo } from './LightGizmo'
 import { LightHandles } from './LightHandles'
+import { LightPanel } from './panel/LightPanel'
+import { DebugUI } from './ui/DebugUI'
 
 interface DebugLayerProps {
   setup: LightSetup
@@ -45,6 +48,10 @@ function StudioScene({ applyRenderer }: { applyRenderer: boolean }) {
   const renderer = useStudio((state) => state.setup.renderer)
   const lights = useStudio(selectRenderableLights)
 
+  // Created here, above both React roots, because the controls are registered
+  // from this tree and the panel that shows them is rendered in the other one.
+  const levaStore = useCreateStore()
+
   return (
     <>
       {applyRenderer && renderer ? <RendererSettings config={renderer} /> : null}
@@ -52,6 +59,10 @@ function StudioScene({ applyRenderer }: { applyRenderer: boolean }) {
       <LightHelpers />
       <LightHandles />
       <LightGizmo />
+      {/* Both render nothing into the scene: one registers leva controls, the
+          other mounts the editor's DOM in a React root of its own. */}
+      <LightPanel levaStore={levaStore} />
+      <DebugUI levaStore={levaStore} />
     </>
   )
 }
