@@ -26,7 +26,8 @@ export function Scene() {
 
 `debug` shows you the rig, lets you pick things in it, move them and edit every
 field. What it cannot do yet is save — the edits live in memory until you
-reload.
+reload. They do survive turning `debug` back off, though: the switch hides the
+editor, it does not discard your work.
 
 - [x] Schema, parser and omit-defaults exporter
 - [x] Zustand store with history, solo and selection
@@ -51,7 +52,7 @@ packages/light-studio/
   src/debug/drawnLights.ts  which lights the editor draws anything for
   src/debug/helpers/        wireframes, built from the config
   src/debug/panel/          leva controls, built from the config
-  src/debug/ui/             the editor's DOM — outliner, drag-paint, stylesheet
+  src/debug/ui/             the editor's DOM — panels, outliner, drag-paint, styles
 ```
 
 `core/schema.ts` describes each light type exactly once, in `LIGHT_DEFINITIONS`.
@@ -203,6 +204,12 @@ is what keeps either one legible — a ten-light rig shown as ten folders of
 controls is a wall, and a property inspector on its own gives you nowhere to
 see the rig as a whole.
 
+Both collapse from their headers, down to a title bar each, for when you want
+to look at the scene rather than at the tool. A collapsed section is **hidden,
+not unmounted**: leva hands its panel back to its own floating root the moment
+the last one unmounts, so collapsing the properties would otherwise spawn a
+second panel in the corner. It also means a half-typed rename survives.
+
 ### It mounts its own React root
 
 `<LightStudio />` is used inside `<Canvas>`, so the reconciler around it is
@@ -221,6 +228,11 @@ One row per light: a colour swatch, its name, its type, and two toggles. It
 owns the three things that are about a light rather than about its lighting —
 its name (double-click to rename), whether it is **on**, and whether you are
 looking at it **alone**.
+
+A shadow column was tried here and taken out again: three toggles in a 24px
+row is more than the list can carry, and a rig is read by scanning names.
+Casting is a property of a light, so it belongs in the properties panel — see
+below for where it sits there.
 
 The two toggles are deliberately not the same kind of thing, and are drawn
 differently to say so. `enabled` is a schema field and is written to the file.
@@ -256,6 +268,21 @@ menu of shadow-map resolutions and the nesting of the shadow settings live in
 `debug/panel/fields.ts`. Ranges are the exception: `clamp` in the schema marks
 the values three actually misbehaves outside of, and those become hard limits.
 
+The panel reads in three bands: what the light emits, then what it casts, then
+where it is. **`position` and `target` are folded away under `transform`, at
+the bottom**, because a light gets dragged with the gizmo far more often than
+it gets typed — those numbers are for reading an exact value or nudging one,
+not for aiming, so they sit below everything you actually reach for.
+
+**`shadows` sits above the shadow folder, not inside it.** Whether a light
+casts is the one shadow field worth reading at a glance, and a collapsed
+folder hides it. Putting the state in the folder's own title is not an option:
+leva takes a folder's title from its key and gives it no `label`, so saying
+"shadow (enabled)" would mean renaming the key — which is a different folder
+path, rebuilt collapsed, so the group would snap shut every time you ticked
+the box inside it. Everything left in the folder is tuning you open on
+purpose.
+
 Leva renders it, filled into the slot rather than floating, with a store of its
 own so an app that already uses leva keeps its own panel where it put it.
 Leva is a tenant here, not the architecture: `fields.ts` describes controls and
@@ -286,6 +313,13 @@ Two leva quirks worth knowing, because both look like bugs in this package:
   Field order needs the same treatment — each control carries an explicit
   `order`, because leva otherwise lays a folder out in the order its controls
   first appeared and the fields shuffle as you click between types.
+- **A folder keeps the settings it was first created with**, `order` included,
+  and a folder's order is the order of the first field inside it. So those
+  numbers are banded by group rather than counted off from the start of the
+  list: a point light has four fields before its `transform` and a spot has
+  six, and an order that counted would leave the folder wherever the last type
+  you looked at had put it. Plain inputs do not have this problem — their
+  settings are rewritten on every schema build.
 - **`useControls` takes its settings before its deps**, not after. Called
   without a folder name it reads argument two as either the deps array or the
   settings, and a settings object in argument three is dropped silently. The

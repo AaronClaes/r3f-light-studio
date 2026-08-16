@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 
 import { visibleLights } from '../core/lights'
 import { parseSetup } from '../core/parse'
+import type { LightSetup } from '../core/schema'
 import { LightRenderer } from './LightRenderer'
 import { RendererSettings } from './RendererSettings'
 
@@ -24,11 +25,30 @@ export function LightStudio({ setup, debug = false, applyRenderer = true }: Ligh
     for (const issue of issues) console.warn(`[LightStudio] ${issue}`)
   }, [issues])
 
-  const lights = useMemo(() => visibleLights(parsed.lights), [parsed.lights])
+  /**
+   * What the editor was holding when it closed.
+   *
+   * The store lives inside the editor chunk, so turning `debug` off unmounts
+   * it and everything in it. Without this, a switch meant to hide the UI would
+   * silently throw away every edit behind it. Edits still only live in memory
+   * — a reload is a reload — but they outlast the toggle.
+   */
+  const [edited, setEdited] = useState<LightSetup | null>(null)
+
+  // A new rig from the outside wins over whatever the editor left behind.
+  useEffect(() => {
+    setEdited(null)
+  }, [parsed])
+
+  const live = edited ?? parsed
+
+  // Solo is a way of looking at a rig rather than a property of one, so it
+  // belongs to the editor. What renders here is only ever the `enabled` filter.
+  const lights = useMemo(() => visibleLights(live.lights), [live.lights])
 
   const rig = (
     <>
-      {applyRenderer && parsed.renderer ? <RendererSettings config={parsed.renderer} /> : null}
+      {applyRenderer && live.renderer ? <RendererSettings config={live.renderer} /> : null}
       <LightRenderer lights={lights} />
     </>
   )
@@ -38,7 +58,7 @@ export function LightStudio({ setup, debug = false, applyRenderer = true }: Ligh
   // The fallback keeps the scene lit while the editor chunk loads.
   return (
     <Suspense fallback={rig}>
-      <DebugLayer setup={parsed} applyRenderer={applyRenderer} />
+      <DebugLayer setup={live} onExit={setEdited} applyRenderer={applyRenderer} />
     </Suspense>
   )
 }

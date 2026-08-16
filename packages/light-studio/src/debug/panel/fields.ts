@@ -34,6 +34,17 @@ export interface Field {
   key: string
   /** Folder path, outermost first. Empty means top level. */
   path: string[]
+  /**
+   * Where it sits in the panel.
+   *
+   * Banded by group rather than counted off from the start of the list. Leva
+   * keeps the settings a folder was first created with, and a folder takes its
+   * order from the first field inside it — so "how many fields come before
+   * this one" would leave the transform folder wherever some other light type
+   * happened to put it. A point light has four fields before its transform, a
+   * spot has six, and switching between them would shuffle the panel.
+   */
+  order: number
   /** The control, with its current value read off `light`. */
   input: (light: LightConfig) => Control
   read: (light: LightConfig) => FieldValue
@@ -73,8 +84,31 @@ const VECTOR_UI: Control = { step: 0.1 }
  */
 const IN_OUTLINER = new Set(['name', 'enabled'])
 
+/**
+ * Last in the panel, and collapsed. A light gets dragged with the gizmo far
+ * more often than it gets typed, so these numbers are for reading an exact
+ * value or nudging one by a known amount rather than for aiming — which puts
+ * them below everything you actually reach for.
+ */
+const TRANSFORM_FOLDER = 'transform'
+
 const SHADOW_FOLDER = 'shadow'
 const FRUSTUM_FOLDER = 'frustum'
+/** Reads as a light property at the top level, where `enabled` would not. */
+const SHADOW_TOGGLE_LABEL = 'shadows'
+
+/**
+ * The bands the panel is laid out in: what the light emits, then what it
+ * casts, then where it is. Spaced far enough apart that a group's own fields
+ * can never run into the next one.
+ */
+const GROUP = {
+  lighting: 0,
+  shadows: 1000,
+  shadow: 2000,
+  frustum: 2500,
+  transform: 3000,
+}
 
 /** Each side with its slot in `ShadowFrustum`, so the order is stated once. */
 const FRUSTUM_SIDES = [
@@ -87,29 +121,41 @@ const FRUSTUM_SIDES = [
 export function fieldsFor(type: LightType): Field[] {
   const definition = LIGHT_DEFINITIONS[type]
   const clamps: Record<string, [number, number]> = definition.clamp ?? {}
-  const fields: Field[] = []
+
+  // Three groups. `GROUP` decides where each lands; the list is concatenated
+  // to match so that reading this function tells you the shape of the panel.
+  const lighting: Field[] = []
+  const shadow: Field[] = []
+  const transform: Field[] = []
 
   for (const [key, fallback] of entriesOf(definition.defaults)) {
     if (IN_OUTLINER.has(key)) continue
 
     if (key === 'shadow') {
-      fields.push(...shadowFields(fallback as ShadowConfig))
+      shadow.push(...shadowFields(fallback as ShadowConfig))
       continue
     }
 
     const control = controlFor(key, fallback, clamps[key])
     if (!control) continue
 
-    fields.push({
+    // Grouped by shape, the same way the control itself is chosen. A
+    // hemisphere light's `position` is a sky direction rather than a place,
+    // but it is still the vector the gizmo moves, so it belongs with them.
+    const vector = isVector(fallback)
+    const bucket = vector ? transform : lighting
+
+    bucket.push({
       key,
-      path: [],
+      path: vector ? [TRANSFORM_FOLDER] : [],
+      order: (vector ? GROUP.transform : GROUP.lighting) + bucket.length,
       input: (light) => ({ ...control, value: propertyOf(light, key) }),
       read: (light) => propertyOf(light, key) as FieldValue,
       patch: (_light, value) => ({ [key]: value }) as LightPatch,
     })
   }
 
-  return fields
+  return [...lighting, ...shadow, ...transform]
 }
 
 function shadowFields(fallback: ShadowConfig): Field[] {
@@ -124,10 +170,22 @@ function shadowFields(fallback: ShadowConfig): Field[] {
     const control = controlFor(key, value)
     if (!control) continue
 
+    // Whether a light casts at all sits above the folder rather than inside
+    // it. It is the one shadow field you want to read at a glance, and a
+    // collapsed folder hides it — leva folders take their title from their
+    // key and have no label, so there is nowhere to put it in the header.
+    // Everything else in here is tuning you only look at once you care.
+    const tuning = key !== 'enabled'
+
     fields.push({
       key: `shadow-${key}`,
-      path: [SHADOW_FOLDER],
-      input: (light) => ({ ...control, label: key, value: shadowOf(light)[key] }),
+      path: tuning ? [SHADOW_FOLDER] : [],
+      order: tuning ? GROUP.shadow + fields.length : GROUP.shadows,
+      input: (light) => ({
+        ...control,
+        label: tuning ? key : SHADOW_TOGGLE_LABEL,
+        value: shadowOf(light)[key],
+      }),
       read: (light) => shadowOf(light)[key] as FieldValue,
       patch: (light, next) => ({ shadow: { ...shadowOf(light), [key]: next } }) as LightPatch,
     })
@@ -144,6 +202,7 @@ function frustumFields(): Field[] {
   return FRUSTUM_SIDES.map(([side, index]) => ({
     key: `frustum-${side}`,
     path: [SHADOW_FOLDER, FRUSTUM_FOLDER],
+    order: GROUP.frustum + index,
     input: (light: LightConfig) => ({ step: 0.5, label: side, value: frustumOf(light)[index] }),
     read: (light: LightConfig) => frustumOf(light)[index],
     patch: (light: LightConfig, value: FieldValue) => {
@@ -167,11 +226,16 @@ function controlFor(key: string, fallback: unknown, clamp?: [number, number]): C
     return { ...NUMBER_UI[key], ...range }
   }
 
-  // Positions and targets. Colours are strings, and leva recognises them by
-  // their value, so they need nothing here.
-  if (Array.isArray(fallback) && fallback.length === 3) return { ...VECTOR_UI }
+  // Colours are strings, and leva recognises them by their value, so they
+  // need nothing here.
+  if (isVector(fallback)) return { ...VECTOR_UI }
 
   return null
+}
+
+/** A position or a target: the three-component fields the gizmo can move. */
+function isVector(fallback: unknown): boolean {
+  return Array.isArray(fallback) && fallback.length === 3
 }
 
 /**

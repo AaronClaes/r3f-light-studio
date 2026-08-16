@@ -65,12 +65,47 @@ const CSS = `
   user-select: none;
 }
 
+/* The whole title area is the collapse control; the aside beside it is not. */
+.ls-head-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ls-head-toggle:hover { color: var(--ls-text); }
+.ls-head-toggle:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: -2px; }
+
+.ls-chevron {
+  flex: none;
+  color: var(--ls-text-dim);
+  transition: transform 120ms ease;
+}
+.ls-chevron[data-open='true'] { transform: rotate(90deg); }
+
 .ls-head-title {
   flex: 1;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* Collapsed sections keep their body mounted — see Panel. */
+.ls-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.ls-body[hidden] { display: none; }
 
 .ls-list {
   overflow-y: auto;
@@ -180,6 +215,20 @@ const CSS = `
    hands the panel back to leva's own floating root. */
 .ls-slot { overflow-y: auto; }
 .ls-slot[hidden] { display: none; }
+
+/*
+ * Leva keeps a folder's separating chrome above its own divider: a border,
+ * 6px of padding and a 10px margin. Collapsed, that margin reads as a hole
+ * beneath whatever sits above the folder, and the panel ends on two stacked
+ * ones. The border and padding stay — only the margin goes.
+ *
+ * Hooked to leva's wrapper class rather than its theme because the value is
+ * --leva-space-md, which also sets the left and right padding on every row;
+ * turning the token down would un-pad the whole panel. The :not() matches
+ * leva's own selector, and .ls-root puts this one class above it — otherwise
+ * the two tie on specificity and injection order decides.
+ */
+.ls-root .ls-slot .leva-c-PJLV:not(:first-of-type) { margin-top: 0; }
 `
 
 /**

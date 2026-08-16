@@ -22,6 +22,15 @@ export function EyeIcon({ open }: { open: boolean }) {
   )
 }
 
+/** Section collapse marker, pointing down when open. Rotated in CSS. */
+export function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg className="ls-chevron" data-open={open} width="8" height="8" viewBox="0 0 8 8" aria-hidden>
+      <path d="M2 0.5 6 4 2 7.5Z" fill="currentColor" />
+    </svg>
+  )
+}
+
 /** Solo is a filled dot rather than an eye: it is a different kind of state. */
 export function SoloIcon({ on }: { on: boolean }) {
   return (

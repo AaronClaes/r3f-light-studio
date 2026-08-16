@@ -5,6 +5,7 @@ import type { StudioState } from '../../core/store'
 import { useStudio, useStudioStore } from '../context'
 import { EyeIcon, SoloIcon } from './icons'
 import { usePaint, type Paint, type PaintColumn } from './paint'
+import { Panel } from './Panel'
 
 /**
  * The rig, as a list.
@@ -31,10 +32,10 @@ export function Outliner() {
   const soloing = soloIds.length > 0
 
   return (
-    <section className="ls-panel">
-      <header className="ls-head">
-        <span className="ls-head-title">Lights</span>
-        {soloing ? (
+    <Panel
+      title="Lights"
+      aside={
+        soloing ? (
           <button
             type="button"
             className="ls-solo-badge"
@@ -43,9 +44,9 @@ export function Outliner() {
           >
             {soloIds.length}
           </button>
-        ) : null}
-      </header>
-
+        ) : null
+      }
+    >
       {ids.length === 0 ? (
         <p className="ls-empty">No lights in this setup.</p>
       ) : (
@@ -65,7 +66,7 @@ export function Outliner() {
           ))}
         </div>
       )}
-    </section>
+    </Panel>
   )
 }
 

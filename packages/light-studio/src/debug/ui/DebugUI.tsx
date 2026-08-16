@@ -6,6 +6,7 @@ import { LIGHT_DEFINITIONS, type LightType } from '../../core/schema'
 import type { StudioState } from '../../core/store'
 import { LightStudioStoreProvider, useStudio, useStudioStore } from '../context'
 import { Outliner } from './Outliner'
+import { Panel } from './Panel'
 import { injectStyles } from './styles'
 
 /**
@@ -64,14 +65,14 @@ function StudioUI({ levaStore }: { levaStore: LevaStore }) {
     <>
       <Outliner />
 
-      <section className="ls-panel">
-        <header className="ls-head">
-          <span className="ls-head-title">{selected ? selected.name || selected.id : 'Light'}</span>
-          {selected ? (
+      <Panel
+        title={selected ? selected.name || selected.id : 'Light'}
+        aside={
+          selected ? (
             <span className="ls-type">{LIGHT_DEFINITIONS[selected.type].label}</span>
-          ) : null}
-        </header>
-
+          ) : null
+        }
+      >
         {selected ? null : <p className="ls-empty">Select a light to edit it.</p>}
 
         {/* Hidden rather than unmounted: leva hands the panel back to its own
@@ -79,7 +80,7 @@ function StudioUI({ levaStore }: { levaStore: LevaStore }) {
         <div className="ls-slot" hidden={!selected}>
           <LevaPanel store={levaStore} fill flat titleBar={false} hideCopyButton />
         </div>
-      </section>
+      </Panel>
     </>
   )
 }

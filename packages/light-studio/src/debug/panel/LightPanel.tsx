@@ -150,10 +150,12 @@ type Handlers = (field: Field) => Control
 /**
  * Lays the flat field list out into leva's nested folders.
  *
- * Every control carries its place in the list as an explicit `order`. Leva
- * otherwise lays a folder out in the order its controls first appeared, and
- * the ones a previous light already created keep their old slots — so the
- * fields would shuffle as you clicked between light types.
+ * Every control carries its place as an explicit `order`, and a folder takes
+ * the order of the first field inside it. Leva otherwise lays a folder out in
+ * the order its controls first appeared, and the ones a previous light already
+ * created keep their old slots — so the fields would shuffle as you clicked
+ * between light types. See `Field.order` for why those numbers are banded
+ * rather than counted.
  */
 function schemaFor(fields: Field[], light: LightConfig, handlers: Handlers): LevaSchema {
   const root: LevaSchema = {}
@@ -180,12 +182,12 @@ function schemaFor(fields: Field[], light: LightConfig, handlers: Handlers): Lev
     return target
   }
 
-  fields.forEach((field, order) => {
-    const control = { ...field.input(light), ...handlers(field), order }
+  for (const field of fields) {
+    const control = { ...field.input(light), ...handlers(field), order: field.order }
     // Assembled from a runtime field list, so there is nothing static for
     // leva's control types to check it against.
-    folderAt(field.path, order)[field.key] = control as LevaSchema[string]
-  })
+    folderAt(field.path, field.order)[field.key] = control as LevaSchema[string]
+  }
 
   return root
 }

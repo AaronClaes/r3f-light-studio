@@ -15,16 +15,28 @@ import { DebugUI } from './ui/DebugUI'
 interface DebugLayerProps {
   setup: LightSetup
   applyRenderer: boolean
+  /** Hands the edited rig back on close, so it outlives the `debug` toggle. */
+  onExit: (setup: LightSetup) => void
 }
 
 /**
  * Owns the store and renders from it. That is the only difference from the
  * production path so far — helpers, gizmos and the panel slot in here.
  */
-export default function DebugLayer({ setup, applyRenderer }: DebugLayerProps) {
+export default function DebugLayer({ setup, applyRenderer, onExit }: DebugLayerProps) {
   // Lazy initialiser, not useMemo: the store is created exactly once and must
   // not re-derive from `setup`, which would discard in-progress edits.
   const [store] = useState(() => createLightStudioStore(setup))
+
+  useEffect(() => {
+    return () => {
+      const state = store.getState()
+      // Untouched means there is nothing to hand back. It also keeps
+      // StrictMode's throwaway first mount from replacing the setup with a
+      // copy of itself, which would reload the store it just built.
+      if (state.dirty) onExit(state.setup)
+    }
+  }, [store, onExit])
 
   useEffect(() => {
     const state = store.getState()
