@@ -8,9 +8,13 @@ import {
   type LightSetup,
   type LightType,
   type RendererConfig,
+  type VectorField,
 } from './schema'
 
 const HISTORY_LIMIT = 100
+
+/** Selecting a light always starts on its own point, never on its target. */
+const NO_SELECTION = { selectedId: null, selectedField: 'position' } as const
 
 function findLight(setup: LightSetup, id: string): LightConfig | undefined {
   return setup.lights.find((light) => light.id === id)
@@ -26,13 +30,15 @@ export interface StudioState {
   /** Last state that matches what is on disk. `reset()` returns here. */
   baseline: LightSetup
   selectedId: string | null
+  /** Which of the selected light's points is being edited. */
+  selectedField: VectorField
   /** Non-empty means "show only these". Never serialised. */
   soloIds: string[]
   dirty: boolean
   past: LightSetup[]
   future: LightSetup[]
 
-  select: (id: string | null) => void
+  select: (id: string | null, field?: VectorField) => void
   toggleSolo: (id: string) => void
   clearSolo: () => void
 
@@ -71,13 +77,14 @@ export function createLightStudioStore(initial: LightSetup) {
     return {
       setup: structuredClone(initial),
       baseline: structuredClone(initial),
-      selectedId: null,
+      ...NO_SELECTION,
       soloIds: [],
       dirty: false,
       past: [],
       future: [],
 
-      select: (id) => set({ selectedId: id }),
+      select: (id, field = 'position') =>
+        set(id === null ? NO_SELECTION : { selectedId: id, selectedField: field }),
 
       toggleSolo: (id) =>
         set((state) => ({
@@ -99,7 +106,7 @@ export function createLightStudioStore(initial: LightSetup) {
         commit((draft) => {
           draft.lights.push(createLight(type, id))
         })
-        set({ selectedId: id })
+        set({ selectedId: id, selectedField: 'position' })
         return id
       },
 
@@ -108,7 +115,7 @@ export function createLightStudioStore(initial: LightSetup) {
           draft.lights = draft.lights.filter((light) => light.id !== id)
         })
         set((state) => ({
-          selectedId: state.selectedId === id ? null : state.selectedId,
+          ...(state.selectedId === id ? NO_SELECTION : {}),
           soloIds: state.soloIds.filter((solo) => solo !== id),
         }))
       },
@@ -124,7 +131,7 @@ export function createLightStudioStore(initial: LightSetup) {
           copy.name = `${source.name} copy`
           draft.lights.push(copy)
         })
-        set({ selectedId: newId })
+        set({ selectedId: newId, selectedField: 'position' })
         return newId
       },
 
@@ -170,7 +177,7 @@ export function createLightStudioStore(initial: LightSetup) {
           dirty: false,
           past: [],
           future: [],
-          selectedId: null,
+          ...NO_SELECTION,
           soloIds: [],
         }),
 

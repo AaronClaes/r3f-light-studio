@@ -24,14 +24,15 @@ export function Scene() {
 
 ## Status
 
-The schema, store, renderer and helpers are done and verified. `debug` shows
-you the rig; it cannot yet edit it.
+`debug` shows you the rig and lets you pick things in it. Nothing can be
+changed yet — the gizmo and the panel are the next step.
 
 - [x] Schema, parser and omit-defaults exporter
 - [x] Zustand store with history, solo and selection
 - [x] Renderer — all six light types, targets, shadows, tone mapping
 - [x] Debug helpers — a wireframe per light, drawn from the config
-- [ ] Selection, gizmos and the Leva panel
+- [x] Selection — click a light, or the point it aims at
+- [ ] TransformControls gizmo and the Leva panel
 - [ ] Vite dev-server writeback (`Cmd+S` writes `lights.json` in place)
 - [ ] Solo/mute UI, fit-shadow-camera, presets, A/B compare
 
@@ -107,6 +108,20 @@ targets, so the built-in helpers would have needed proxy shapes regardless.
 - **A spot cone ends at `distance`**, or at the target when `distance` is 0.
   A point light's `distance` draws as three faint circles.
 - Lights that are off, or muted by someone else's solo, still draw — faintly.
+
+## Selection
+
+Every light has a grabbable handle, and every light that aims has a second one
+on its target. Which handles exist is derived from the schema rather than from
+a per-type switch: a light gets one for each vector field it declares. Ambient
+is the exception — it has no vector fields, so it has no handle and will be
+selected from the panel.
+
+Handles are held at a constant size on screen, so they stay grabbable whether
+you are up against a light or looking at the whole rig, and they ignore depth
+so a light behind your geometry can still be picked. Clicking empty space
+deselects. The store tracks _which_ handle is selected, not just which light,
+because the gizmo needs to know whether you grabbed the light or its target.
 
 ## Commands
 

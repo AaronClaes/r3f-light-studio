@@ -158,6 +158,9 @@ export const LIGHT_DEFINITIONS = {
 
 export type LightType = keyof typeof LIGHT_DEFINITIONS
 
+/** The fields a light can expose as a point you drag. Not every type has both. */
+export type VectorField = 'position' | 'target'
+
 type ConfigFor<T extends LightType> = {
   /** Stable across exports and readable in a diff. Never an array index. */
   id: string
