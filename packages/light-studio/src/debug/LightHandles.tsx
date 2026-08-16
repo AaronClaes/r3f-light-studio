@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import type { Vec3, VectorField } from '../core/schema'
 import { useStudio, useStudioStore } from './context'
 import { useDrawnLights } from './drawnLights'
-import { dashedCircle, wireDiamond } from './helpers/geometry'
+import { dashedCircle, wireCross, wireDiamond } from './helpers/geometry'
 
 /** Ring radius as a fraction of the viewport height. */
 const HANDLE_SIZE = 0.015
@@ -16,21 +16,38 @@ const PICK_SCALE = 1.3
 /** The handle being dragged grows, so you can tell it apart at a glance. */
 const SELECTED_SCALE = 1.25
 const SELECTED_COLOR = '#ffffff'
-/** Handles stay findable even when their light's helper has receded. */
+/**
+ * Handles stay findable even when their light's helper has receded. Only
+ * source handles are ever idle — a target is drawn for the selected light and
+ * for no one else — so in practice this is the unselected lights' ring.
+ */
 const IDLE_OPACITY = 0.55
 
 /**
  * The grabbable points of the rig: one per light, plus one on the target of
- * every light that aims. Clicking selects; clicking nothing deselects.
+ * the light you have selected. Clicking selects; clicking nothing deselects.
  *
  * Which points exist is derived from the schema rather than from a per-type
  * switch — a light has a handle for each vector field it actually declares.
  *
  * A light that is off, or muted by someone else's solo, has no handles: it is
  * not drawn at all, and the outliner is where you pick it up again.
+ *
+ * ## Why targets are only drawn for the selected light
+ *
+ * A target handle you have not selected is a redundant place to click: the
+ * only useful half of the click is "select this light", which the light's own
+ * handle and the outliner both already do. What it costs is real, though —
+ * most rigs aim at the origin, so a dozen targets stack into one bright blob
+ * there, and every one of them doubles a light's footprint on screen.
+ *
+ * Nothing is hidden by this. The beam still runs out to the target, so where
+ * a light points is as readable as before; you just have to pick the light up
+ * before you can move the far end of it.
  */
 export function LightHandles() {
   const lights = useDrawnLights()
+  const selectedId = useStudio((state) => state.selectedId)
   const store = useStudioStore()
 
   return (
@@ -54,7 +71,7 @@ export function LightHandles() {
           {'position' in light ? (
             <Handle color={light.color} field="position" id={light.id} point={light.position} />
           ) : null}
-          {'target' in light ? (
+          {'target' in light && light.id === selectedId ? (
             <Handle color={light.color} field="target" id={light.id} point={light.target} />
           ) : null}
         </Fragment>
@@ -81,14 +98,12 @@ function Handle({ id, field, point, color }: HandleProps) {
   }))
   const [hovered, setHovered] = useState(false)
 
-  const ring = useMemo(() => dashedCircle(1), [])
-  const centre = useMemo(() => wireDiamond(CENTRE_RADIUS), [])
+  const marks = useMemo(() => marksFor(field), [field])
   useEffect(() => {
     return () => {
-      ring.dispose()
-      centre.dispose()
+      for (const mark of marks) mark.dispose()
     }
-  }, [ring, centre])
+  }, [marks])
 
   useBillboard(group, HANDLE_SIZE)
   usePointerCursor(hovered)
@@ -99,8 +114,9 @@ function Handle({ id, field, point, color }: HandleProps) {
   return (
     <group ref={group} position={point}>
       <group scale={dragged ? SELECTED_SCALE : 1}>
-        <Mark color={markColor} geometry={ring} opacity={opacity} />
-        <Mark color={markColor} geometry={centre} opacity={opacity} />
+        {marks.map((mark) => (
+          <Mark color={markColor} geometry={mark} key={mark.uuid} opacity={opacity} />
+        ))}
       </group>
 
       <mesh
@@ -122,6 +138,18 @@ function Handle({ id, field, point, color }: HandleProps) {
       </mesh>
     </group>
   )
+}
+
+/**
+ * The glyph, which says what kind of point this is.
+ *
+ * A source is Blender's light gizmo — a dashed ring around a diamond. A target
+ * is a bare reticle: no ring, so the two never read as the same thing even
+ * side by side, and lighter on screen, which suits the lesser of the two.
+ */
+function marksFor(field: VectorField): THREE.BufferGeometry[] {
+  if (field === 'target') return [wireCross(CENTRE_RADIUS, 1)]
+  return [dashedCircle(1), wireDiamond(CENTRE_RADIUS)]
 }
 
 /** Never occluded, matching the pick sphere: what you can click, you can see. */

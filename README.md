@@ -119,8 +119,8 @@ ours to control rather than three's.
 ### What gets drawn
 
 A light that is not lighting anything is not drawn at all. Switch it off, or
-mute it under someone else's solo, and its wireframe and both of its handles
-go with it. Dimming them instead was the earlier behaviour, justified by
+mute it under someone else's solo, and its wireframe and its handles go with
+it. Dimming them instead was the earlier behaviour, justified by
 keeping an off light findable — the outliner does that now, and a rig of faint
 shapes for things that are doing nothing is just noise.
 
@@ -147,18 +147,32 @@ in order to select it in the first place.
 
 ## Selection
 
-Every light has a grabbable handle, and every light that aims has a second one
-on its target. Which handles exist is derived from the schema rather than from
-a per-type switch: a light gets one for each vector field it declares. Ambient
-is the exception — it has no vector fields, so it has no handle and is
-selected from the outliner.
+Every light has a grabbable handle, and the light you have selected gets a
+second one on its target. Which handles exist is derived from the schema
+rather than from a per-type switch: a light gets one for each vector field it
+declares. Ambient is the exception — it has no vector fields, so it has no
+handle and is selected from the outliner.
 
-A handle is a dashed ring with a small diamond at its centre, borrowed from
-Blender's light gizmos. It billboards to the camera, so it reads as a ring from
-every angle instead of collapsing into an ellipse, and holds a constant size on
-screen so it stays grabbable whether you are up against a light or looking at
-the whole rig. It ignores depth, so a light behind your geometry can still be
-picked, and an invisible sphere slightly larger than the ring does the actual
+**A target only appears for the selected light.** Unselected, it is a
+redundant place to click: the only useful half of that click is "select this
+light", which the light's own handle and the outliner both already do. What it
+costs is real — most rigs aim at the origin, so a dozen targets stack into one
+bright blob there, and every one of them doubles a light's footprint on
+screen. Nothing is hidden by this: the beam still runs out to the target, so
+where a light points reads the same. You just pick the light up before you
+move the far end of it.
+
+The two are drawn differently, because they are different kinds of point. A
+light is a dashed ring around a small diamond, borrowed from Blender's light
+gizmos. A target is a bare reticle — four arms with a gap in the middle, no
+ring — so the two never read as the same thing even side by side, and the
+lesser of the two sits lighter on screen.
+
+A handle billboards to the camera, so it reads as a ring from every angle
+instead of collapsing into an ellipse, and holds a constant size on screen so
+it stays grabbable whether you are up against a light or looking at the whole
+rig. It ignores depth, so a light behind your geometry can still be picked,
+and an invisible sphere slightly larger than the ring does the actual
 hit-testing.
 
 The dashes are baked into the geometry rather than drawn with
@@ -166,7 +180,7 @@ The dashes are baked into the geometry rather than drawn with
 handle rescales every frame to hold its screen size — real dashes would stretch
 and crawl as you moved the camera.
 
-Selecting a light brightens both of its handles; only the one the gizmo is
+Selecting a light brightens its handles; only the one the gizmo is
 driving turns white and grows. Clicking empty space deselects. The store tracks
 _which_ handle is selected, not just which light, because the gizmo needs to
 know whether you grabbed the light or its target.
@@ -176,7 +190,7 @@ know whether you grabbed the light or its target.
 Translate only, via drei's `TransformControls`. The schema aims a light by
 moving a target, so a rotate ring would be editing a field the format does not
 have, and rotation is meaningless for a point light anyway. Drag the light's
-handle to move it; drag its target handle to re-aim it.
+handle to move it; drag the reticle that appears at its target to re-aim it.
 
 **A drag is one undo step.** The store has a transaction: `beginTransaction`
 snapshots the setup, every edit until `endTransaction` mutates freely without

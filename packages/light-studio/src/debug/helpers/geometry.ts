@@ -95,6 +95,30 @@ export function dashedCircle(radius: number): THREE.BufferGeometry {
   return fromPairs(positions)
 }
 
+/**
+ * Four arms along the axes with a gap in the middle, in the XY plane.
+ *
+ * A reticle rather than a star: the gap is what you aim with, and it keeps the
+ * beam arriving at the point from reading as a fifth arm.
+ */
+export function wireCross(inner: number, outer: number): THREE.BufferGeometry {
+  const positions: number[] = []
+
+  for (const [x, y] of CROSS_ARMS) {
+    positions.push(x * inner, y * inner, 0, x * outer, y * outer, 0)
+  }
+
+  return fromPairs(positions)
+}
+
+/** `as const` so each arm destructures as a pair of numbers, not of maybes. */
+const CROSS_ARMS = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+] as const
+
 /** A square stood on its corner, in the XY plane. */
 export function wireDiamond(radius: number): THREE.BufferGeometry {
   const r = radius
