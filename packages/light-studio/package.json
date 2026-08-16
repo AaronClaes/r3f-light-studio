@@ -1,0 +1,40 @@
+{
+  "name": "r3f-light-studio",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "access": "public"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@react-three/fiber": "catalog:",
+    "@types/react": "catalog:",
+    "@types/three": "catalog:",
+    "react": "catalog:",
+    "three": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "@react-three/fiber": ">=9",
+    "react": ">=19",
+    "three": ">=0.180"
+  }
+}

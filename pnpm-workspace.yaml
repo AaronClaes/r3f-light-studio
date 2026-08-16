@@ -1,0 +1,20 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# One version of three/react across the whole workspace. Two copies of `three`
+# break instanceof checks and r3f reconciliation in ways that are very hard to
+# debug, so every package references these through `catalog:` and never pins.
+catalog:
+  '@react-three/drei': 10.7.8
+  '@react-three/fiber': 9.7.0
+  '@types/react': 19.2.18
+  '@types/react-dom': 19.2.4
+  '@types/three': 0.185.4
+  '@vitejs/plugin-react': 6.0.5
+  react: 19.2.8
+  react-dom: 19.2.8
+  three: 0.185.1
+  typescript: 7.0.2
+  vite: 8.2.1
+  zustand: 5.0.15

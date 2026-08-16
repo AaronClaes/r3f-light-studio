@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "renderer": {
+    "toneMapping": "ACESFilmic",
+    "exposure": 1.1
+  },
+  "lights": [
+    {
+      "id": "ambient",
+      "type": "ambient",
+      "name": "Ambient",
+      "intensity": 0.12
+    },
+    {
+      "id": "key",
+      "type": "directional",
+      "name": "Key",
+      "color": "#ffe8d5",
+      "intensity": 3.2,
+      "position": [4, 6, 3],
+      "target": [0, 0.8, 0],
+      "shadow": {
+        "enabled": true,
+        "mapSize": 2048,
+        "far": 30,
+        "frustum": [-8, 8, 8, -8]
+      }
+    },
+    {
+      "id": "fill",
+      "type": "directional",
+      "name": "Fill",
+      "color": "#d6e4ff",
+      "intensity": 0.55,
+      "position": [-5, 3, 4],
+      "target": [0, 0.8, 0]
+    },
+    {
+      "id": "rim",
+      "type": "spot",
+      "name": "Rim",
+      "color": "#ffd9b3",
+      "intensity": 60,
+      "position": [-2.5, 4, -5],
+      "target": [0, 1, 0],
+      "angle": 0.5,
+      "penumbra": 0.6,
+      "distance": 20,
+      "shadow": {
+        "enabled": true,
+        "far": 25
+      }
+    },
+    {
+      "id": "practical",
+      "type": "point",
+      "name": "Practical",
+      "color": "#ff7043",
+      "intensity": 6,
+      "position": [1.6, 0.5, 1.8],
+      "distance": 8
+    }
+  ]
+}
