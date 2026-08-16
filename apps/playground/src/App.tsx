@@ -1,13 +1,11 @@
 import { ContactShadows, OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { LightStudio } from 'r3f-light-studio'
-import { useState, type CSSProperties } from 'react'
+import type { CSSProperties } from 'react'
 
 import setup from './lights.json'
 
 export function App() {
-  const [debug, setDebug] = useState(false)
-
   return (
     <>
       <Canvas shadows camera={{ position: [6, 4, 8], fov: 40 }}>
@@ -15,15 +13,16 @@ export function App() {
             you drag a light. Without it the camera fights the gizmo. */}
         <OrbitControls makeDefault target={[0, 0.8, 0]} />
 
-        <LightStudio setup={setup} debug={debug} />
+        {/* Armed for the whole session; the toggle key is what shows it. */}
+        <LightStudio setup={setup} debug />
 
         <Subjects />
       </Canvas>
 
-      <label style={panelStyle}>
-        <input type="checkbox" checked={debug} onChange={(e) => setDebug(e.target.checked)} />
-        Debug
-      </label>
+      {/* The editor starts hidden and nothing on screen says it is there. */}
+      <p style={panelStyle}>
+        Press <kbd style={kbdStyle}>F2</kbd> for the light studio
+      </p>
     </>
   )
 }
@@ -62,13 +61,20 @@ const panelStyle: CSSProperties = {
   top: 16,
   left: 16,
   display: 'flex',
-  gap: 8,
+  gap: 6,
   alignItems: 'center',
+  margin: 0,
   padding: '8px 12px',
   borderRadius: 8,
   background: 'rgba(20,20,24,0.8)',
   color: '#e8e8ee',
   font: '13px ui-sans-serif, system-ui, sans-serif',
   userSelect: 'none',
-  cursor: 'pointer',
+}
+
+const kbdStyle: CSSProperties = {
+  padding: '1px 6px',
+  borderRadius: 4,
+  background: '#ffffff1a',
+  font: '12px ui-monospace, monospace',
 }

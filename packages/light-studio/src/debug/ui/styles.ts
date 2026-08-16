@@ -43,6 +43,10 @@ const CSS = `
   line-height: 1;
 }
 
+/* Put away with the toggle key. Needed explicitly: the display above beats
+   the browser's own [hidden] rule, which is only display: none. */
+.ls-root[hidden] { display: none; }
+
 .ls-panel {
   display: flex;
   flex-direction: column;

@@ -5,6 +5,7 @@ import { parseSetup } from '../core/parse'
 import type { LightSetup } from '../core/schema'
 import { LightRenderer } from './LightRenderer'
 import { RendererSettings } from './RendererSettings'
+import { DEFAULT_TOGGLE_KEY, useToggleKey, type ToggleKey } from './toggleKey'
 
 /** Separate chunk, so no editor code reaches a production bundle. */
 const DebugLayer = lazy(() => import('../debug/DebugLayer'))
@@ -12,13 +13,26 @@ const DebugLayer = lazy(() => import('../debug/DebugLayer'))
 export interface LightStudioProps {
   /** The rig. Accepts `unknown` because this is usually a raw JSON import. */
   setup: unknown
-  /** Opens the editor. Leave off in production. */
+  /**
+   * Makes the editor available. Leave off in production.
+   *
+   * It starts hidden: this arms the editor, `toggleKey` is what puts it on
+   * screen. A rig you are not editing right now should not have a panel
+   * sitting over your scene.
+   */
   debug?: boolean
+  /** Shows and hides the editor. Defaults to F2; `null` binds nothing. */
+  toggleKey?: ToggleKey | null
   /** Set false to keep your own tone mapping and exposure. */
   applyRenderer?: boolean
 }
 
-export function LightStudio({ setup, debug = false, applyRenderer = true }: LightStudioProps) {
+export function LightStudio({
+  setup,
+  debug = false,
+  toggleKey = DEFAULT_TOGGLE_KEY,
+  applyRenderer = true,
+}: LightStudioProps) {
   const { setup: parsed, issues } = useMemo(() => parseSetup(setup), [setup])
 
   useEffect(() => {
@@ -40,6 +54,23 @@ export function LightStudio({ setup, debug = false, applyRenderer = true }: Ligh
     setEdited(null)
   }, [parsed])
 
+  /**
+   * Whether the editor is on screen.
+   *
+   * Only ever a visibility flag: the editor stays mounted underneath, holding
+   * the store, so hiding it keeps every edit and the current selection. That
+   * is what makes this different from turning `debug` off, which unmounts the
+   * chunk the store lives in.
+   */
+  const [shown, setShown] = useState(false)
+
+  useToggleKey(debug ? toggleKey : null, () => setShown((wasShown) => !wasShown))
+
+  // Disarming puts it away, so arming it again starts from the same place.
+  useEffect(() => {
+    if (!debug) setShown(false)
+  }, [debug])
+
   const live = edited ?? parsed
 
   // Solo is a way of looking at a rig rather than a property of one, so it
@@ -55,10 +86,12 @@ export function LightStudio({ setup, debug = false, applyRenderer = true }: Ligh
 
   if (!debug) return rig
 
-  // The fallback keeps the scene lit while the editor chunk loads.
+  // Mounted whether or not it is shown, so the store outlives a keypress and
+  // the chunk is already there when you ask for it. The fallback keeps the
+  // scene lit while that chunk loads.
   return (
     <Suspense fallback={rig}>
-      <DebugLayer setup={live} onExit={setEdited} applyRenderer={applyRenderer} />
+      <DebugLayer applyRenderer={applyRenderer} onExit={setEdited} setup={live} visible={shown} />
     </Suspense>
   )
 }

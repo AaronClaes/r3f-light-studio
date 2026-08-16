@@ -17,13 +17,15 @@ interface DebugLayerProps {
   applyRenderer: boolean
   /** Hands the edited rig back on close, so it outlives the `debug` toggle. */
   onExit: (setup: LightSetup) => void
+  /** Whether the editor is on screen. Hidden, this still renders the rig. */
+  visible: boolean
 }
 
 /**
  * Owns the store and renders from it. That is the only difference from the
  * production path so far — helpers, gizmos and the panel slot in here.
  */
-export default function DebugLayer({ setup, applyRenderer, onExit }: DebugLayerProps) {
+export default function DebugLayer({ setup, applyRenderer, onExit, visible }: DebugLayerProps) {
   // Lazy initialiser, not useMemo: the store is created exactly once and must
   // not re-derive from `setup`, which would discard in-progress edits.
   const [store] = useState(() => createLightStudioStore(setup))
@@ -51,12 +53,12 @@ export default function DebugLayer({ setup, applyRenderer, onExit }: DebugLayerP
 
   return (
     <LightStudioStoreProvider value={store}>
-      <StudioScene applyRenderer={applyRenderer} />
+      <StudioScene applyRenderer={applyRenderer} visible={visible} />
     </LightStudioStoreProvider>
   )
 }
 
-function StudioScene({ applyRenderer }: { applyRenderer: boolean }) {
+function StudioScene({ applyRenderer, visible }: { applyRenderer: boolean; visible: boolean }) {
   const renderer = useStudio((state) => state.setup.renderer)
   const lights = useStudio(selectRenderableLights)
 
@@ -68,13 +70,25 @@ function StudioScene({ applyRenderer }: { applyRenderer: boolean }) {
     <>
       {applyRenderer && renderer ? <RendererSettings config={renderer} /> : null}
       <LightRenderer lights={lights} />
-      <LightHelpers />
-      <LightHandles />
-      <LightGizmo />
+
+      {/* Hidden, the scene is the production one: no wireframes, no grabbable
+          points, no gizmo. Unmounting them is safe — they hold nothing but
+          geometry, and the store they read from lives above this. */}
+      {visible ? (
+        <>
+          <LightHelpers />
+          <LightHandles />
+          <LightGizmo />
+        </>
+      ) : null}
+
       {/* Both render nothing into the scene: one registers leva controls, the
-          other mounts the editor's DOM in a React root of its own. */}
+          other mounts the editor's DOM in a React root of its own. Both stay
+          mounted while hidden — leva reclaims its panel into a floating root
+          of its own the moment the last one unmounts, which would put a panel
+          on screen at exactly the moment you asked for none. */}
       <LightPanel levaStore={levaStore} />
-      <DebugUI levaStore={levaStore} />
+      <DebugUI levaStore={levaStore} visible={visible} />
     </>
   )
 }

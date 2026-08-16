@@ -22,12 +22,14 @@ export function Scene() {
 }
 ```
 
+Press **`F2`** to bring the editor up, and again to put it away.
+
 ## Status
 
-`debug` shows you the rig, lets you pick things in it, move them and edit every
-field. What it cannot do yet is save — the edits live in memory until you
-reload. They do survive turning `debug` back off, though: the switch hides the
-editor, it does not discard your work.
+The editor lets you pick things in the rig, move them and edit every field.
+What it cannot do yet is save — the edits live in memory until you reload.
+They do survive being put away, and turning `debug` off as well: neither
+throws your work out.
 
 - [x] Schema, parser and omit-defaults exporter
 - [x] Zustand store with history, solo and selection
@@ -37,6 +39,7 @@ editor, it does not discard your work.
 - [x] Gizmo — drag the selected point, one undo step per drag
 - [x] Properties panel — every field of the selected light
 - [x] Outliner — the rig as a list, with rename, on/off and solo
+- [x] Toggle key — the editor is armed by `debug`, shown by a keypress
 - [ ] Vite dev-server writeback (`Cmd+S` writes `lights.json` in place)
 - [ ] Keyboard undo/redo
 - [ ] Fit-shadow-camera, presets, add/duplicate/delete, A/B compare
@@ -47,7 +50,7 @@ editor, it does not discard your work.
 apps/playground/            test scene
 packages/light-studio/
   src/core/                 schema, lights, parse, serialize, store — no r3f, no UI
-  src/runtime/              LightStudio, LightRenderer — the production path
+  src/runtime/              LightStudio, LightRenderer, toggleKey — the production path
   src/debug/                lazy-loaded editor chunk
   src/debug/drawnLights.ts  which lights the editor draws anything for
   src/debug/helpers/        wireframes, built from the config
@@ -100,6 +103,53 @@ An `Object3D`-format export is a possible v2 feature, as a one-way adapter.
   of one, so it lives in the store and never serialises.
 - Defaults are omitted on write. `parseSetup` fills them back in and never
   throws — malformed input yields warnings, not a black scene.
+
+## Arming it, and showing it
+
+`debug` and the toggle key answer different questions. **`debug` decides
+whether the editor exists; the key decides whether you are looking at it.** A
+rig you are not editing right now should not have a panel sitting over your
+scene, and a rig you might edit in a moment should not cost a reload to reach
+— so the usual setup is `debug={import.meta.env.DEV}` and a keypress.
+
+Armed, the editor starts **hidden**. Put away it is not merely transparent:
+the panels, the wireframes, the handles and the gizmo are all gone and the
+scene renders exactly as it does in production. What stays is the store, so
+every edit, your selection and even a half-typed rename are still there when
+you bring it back. That is the difference from turning `debug` off, which
+unmounts the chunk the store lives in and has to hand the rig back on the way
+out.
+
+The key is yours to pick:
+
+```tsx
+<LightStudio setup={setup} debug />                                       // F2
+<LightStudio setup={setup} debug toggleKey={{ key: 'Backquote' }} />
+<LightStudio setup={setup} debug toggleKey={{ modifier: 'meta', key: 'd' }} />
+<LightStudio setup={setup} debug toggleKey={null} />                      // no binding
+```
+
+**F2 is the default because it is in the same place on every keyboard.**
+Backtick is the older convention — the debug console since Quake — and it is
+still the better key if your team is all on ANSI boards. It is a poor default,
+though: on the ISO layouts most of Europe types on it moves from under Esc to
+the left of Z, and on several it is a dead key you press twice. A key whose
+whole job is to stay out of the way should not be one you hunt for. F2 also
+has no text-field hazard at all, and nothing in any browser claims it — unlike
+`Cmd+Shift+D`, which bookmarks all your tabs.
+
+Three details in the binding are load-bearing:
+
+- **`key` is matched against `KeyboardEvent.code` _and_ `.key`**, case
+  insensitively, so `'Backquote'`, `'F2'` and `'d'` all work. Matching `code`
+  is what keeps backtick working on layouts where it is a dead key — there
+  `.key` arrives as `'Dead'` and a `.key`-only binding quietly stops firing.
+- **A keypress inside a text field belongs to the field.** F2 is safe either
+  way, but leva's panel is mostly inputs and the outliner renames in place, so
+  binding a bare letter or backtick without this would close the editor
+  mid-word.
+- **The modifier must match exactly.** With a bare `Backquote`, Shift+`` ` ``
+  types a tilde and does nothing else.
 
 ## Debug helpers
 
