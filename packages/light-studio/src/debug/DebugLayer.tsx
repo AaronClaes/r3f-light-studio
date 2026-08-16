@@ -7,6 +7,7 @@ import { LightRenderer } from '../runtime/LightRenderer'
 import { RendererSettings } from '../runtime/RendererSettings'
 import { LightStudioStoreProvider, useStudio } from './context'
 import { LightHelpers } from './helpers/LightHelpers'
+import { useHistoryKeys } from './historyKeys'
 import { LightGizmo } from './LightGizmo'
 import { LightHandles } from './LightHandles'
 import { LightPanel } from './panel/LightPanel'
@@ -61,6 +62,11 @@ export default function DebugLayer({ setup, applyRenderer, onExit, visible }: De
 function StudioScene({ applyRenderer, visible }: { applyRenderer: boolean; visible: boolean }) {
   const renderer = useStudio((state) => state.setup.renderer)
   const lights = useStudio(selectRenderableLights)
+
+  // Here rather than in a component of its own: it is the first thing in the
+  // studio that is neither scene content nor panel, and this is the innermost
+  // place that can see the store.
+  useHistoryKeys(visible)
 
   // Created here, above both React roots, because the controls are registered
   // from this tree and the panel that shows them is rendered in the other one.

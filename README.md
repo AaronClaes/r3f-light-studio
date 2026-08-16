@@ -40,8 +40,8 @@ throws your work out.
 - [x] Properties panel — every field of the selected light
 - [x] Outliner — the rig as a list, with rename, on/off and solo
 - [x] Toggle key — the editor is armed by `debug`, shown by a keypress
+- [x] Keyboard undo/redo
 - [ ] Vite dev-server writeback (`Cmd+S` writes `lights.json` in place)
-- [ ] Keyboard undo/redo
 - [ ] Fit-shadow-camera, presets, add/duplicate/delete, A/B compare
 
 ## Layout
@@ -52,6 +52,7 @@ packages/light-studio/
   src/core/                 schema, lights, parse, serialize, store — no r3f, no UI
   src/runtime/              LightStudio, LightRenderer, toggleKey — the production path
   src/debug/                lazy-loaded editor chunk
+  src/debug/historyKeys.ts  Cmd+Z and Cmd+Shift+Z, bound while the editor shows
   src/debug/drawnLights.ts  which lights the editor draws anything for
   src/debug/helpers/        wireframes, built from the config
   src/debug/panel/          leva controls, built from the config
@@ -150,6 +151,32 @@ Three details in the binding are load-bearing:
   mid-word.
 - **The modifier must match exactly.** With a bare `Backquote`, Shift+`` ` ``
   types a tilde and does nothing else.
+
+## Undo
+
+`Cmd+Z` and `Cmd+Shift+Z`, or `Ctrl+Z` and `Ctrl+Y`. Both platforms' modifiers
+are accepted, so one build behaves natively on either. Unlike the toggle key
+these are **not configurable**: undo is the one binding that is the same in
+every application everywhere, so there is nothing here anyone wants to rebind.
+
+The store has had `undo`/`redo` and a history stack since the beginning, and
+every editing gesture already collapses into exactly one entry — a gizmo drag,
+a slider scrub and a drag-painted row of switches are each a single step. This
+is only the keyboard reaching it.
+
+- **Bound only while the editor is on screen.** Put away, the studio is not
+  what you are editing and `Cmd+Z` belongs to the app around it.
+- **A keypress in a text field is the field's.** The rig does not move, and
+  `preventDefault` is not called either, so the browser's own undo still works
+  on the half-typed name in front of you.
+- **Ignored while a drag or a slider scrub is open.** The snapshot the
+  transaction took is what gets pushed when it ends, so rewinding underneath
+  it would record a step that never happened.
+- **`Cmd+Y` is deliberately not redo.** `Ctrl+Y` is the Windows habit, but on
+  a Mac `Cmd+Y` belongs elsewhere — in Firefox it opens the history window.
+- **Z is matched by physical position _and_ produced character.** `code` alone
+  misses Dvorak, where the OS routes `Cmd+Z` by character and the physical key
+  is somewhere else entirely.
 
 ## Debug helpers
 

@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 
+import { isTyping } from './keyboard'
+
 /**
  * The key that shows and hides the editor.
  *
@@ -53,9 +55,6 @@ export function useToggleKey(binding: ToggleKey | null, onToggle: () => void): v
     const onKeyDown = (event: KeyboardEvent) => {
       if (!heldExactly(event, modifier)) return
       if (!matches(event, key)) return
-      // Leva's panel is mostly text fields and the outliner renames in place,
-      // so an unmodified key would fire mid-word. A keypress that lands in a
-      // field belongs to the field.
       if (isTyping(event.target)) return
 
       event.preventDefault()
@@ -85,11 +84,4 @@ function heldExactly(event: KeyboardEvent, modifier: ToggleKey['modifier']): boo
     event.altKey === (modifier === 'alt') &&
     event.shiftKey === (modifier === 'shift')
   )
-}
-
-const TYPED_INTO = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
-
-function isTyping(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  return TYPED_INTO.has(target.tagName) || target.isContentEditable
 }
