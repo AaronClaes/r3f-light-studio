@@ -5,6 +5,7 @@ import { createLightStudioStore, selectRenderableLights } from '../core/store'
 import { LightRenderer } from '../runtime/LightRenderer'
 import { RendererSettings } from '../runtime/RendererSettings'
 import { LightStudioStoreProvider, useStudio } from './context'
+import { LightHelpers } from './helpers/LightHelpers'
 
 interface DebugLayerProps {
   setup: LightSetup
@@ -46,6 +47,7 @@ function StudioScene({ applyRenderer }: { applyRenderer: boolean }) {
     <>
       {applyRenderer && renderer ? <RendererSettings config={renderer} /> : null}
       <LightRenderer lights={lights} />
+      <LightHelpers />
     </>
   )
 }

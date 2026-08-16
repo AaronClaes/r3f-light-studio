@@ -24,13 +24,14 @@ export function Scene() {
 
 ## Status
 
-Step 1 of 4. The schema, store and renderer are done and verified; the editor
-UI is not built yet.
+The schema, store, renderer and helpers are done and verified. `debug` shows
+you the rig; it cannot yet edit it.
 
 - [x] Schema, parser and omit-defaults exporter
 - [x] Zustand store with history, solo and selection
 - [x] Renderer — all six light types, targets, shadows, tone mapping
-- [ ] Debug layer — helpers, selection, TransformControls, Leva panel
+- [x] Debug helpers — a wireframe per light, drawn from the config
+- [ ] Selection, gizmos and the Leva panel
 - [ ] Vite dev-server writeback (`Cmd+S` writes `lights.json` in place)
 - [ ] Solo/mute UI, fit-shadow-camera, presets, A/B compare
 
@@ -42,6 +43,7 @@ packages/light-studio/
   src/core/               schema, lights, parse, serialize, store — no r3f, no UI
   src/runtime/            LightStudio, LightRenderer — the production path
   src/debug/              lazy-loaded editor chunk
+  src/debug/helpers/      wireframes, built from the config
 ```
 
 `core/schema.ts` describes each light type exactly once, in `LIGHT_DEFINITIONS`.
@@ -89,6 +91,22 @@ An `Object3D`-format export is a possible v2 feature, as a one-way adapter.
   of one, so it lives in the store and never serialises.
 - Defaults are omitted on write. `parseSetup` fills them back in and never
   throws — malformed input yields warnings, not a black scene.
+
+## Debug helpers
+
+The wireframes are drawn from the config, not from three's `SpotLightHelper` and
+friends. That means the debug layer never touches the rendered lights: no ref
+plumbing out of `LightRenderer`, no `.update()` calls to keep in sync, and — the
+reason it matters — a helper for lights that are switched off, which is what
+makes them usable as selection targets later. Thin lines are also terrible click
+targets, so the built-in helpers would have needed proxy shapes regardless.
+
+- **Ambient lights have no helper.** They have neither a position nor a
+  direction; there is nothing honest to draw. They'll be reachable from the
+  panel.
+- **A spot cone ends at `distance`**, or at the target when `distance` is 0.
+  A point light's `distance` draws as three faint circles.
+- Lights that are off, or muted by someone else's solo, still draw — faintly.
 
 ## Commands
 
