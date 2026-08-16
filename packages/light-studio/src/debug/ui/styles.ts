@@ -215,6 +215,46 @@ const CSS = `
   text-align: center;
 }
 
+/*
+ * Outside the panels, so collapsing them cannot take it away. Shaped like a
+ * panel header rather than a panel: it is a strip of controls, not a section.
+ */
+.ls-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--ls-radius);
+  background: var(--ls-bg);
+  box-shadow: 0 0 9px 0 #00000088;
+  user-select: none;
+}
+
+/* Only shown while the rig has drifted from the file, so it reads as a state
+   to clear rather than a label. Losing it is the confirmation of a save. */
+.ls-state {
+  color: var(--ls-text-dim);
+}
+
+.ls-copy {
+  flex: none;
+  height: 18px;
+  margin: 0 0 0 auto;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--ls-bg-raised);
+  color: var(--ls-text);
+  font: inherit;
+  cursor: pointer;
+}
+.ls-copy:hover { background: #454b5c; }
+.ls-copy:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: 1px; }
+.ls-copy[data-status='copied'] { background: #2f7d52; }
+.ls-copy[data-status='failed'] { background: #8a3b3b; }
+
 /* Leva fills the slot. Kept mounted while nothing is selected: unmounting it
    hands the panel back to leva's own floating root. */
 .ls-slot { overflow-y: auto; }

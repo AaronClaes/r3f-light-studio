@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { LIGHT_DEFINITIONS, type LightType } from '../../core/schema'
 import type { StudioState } from '../../core/store'
 import { LightStudioStoreProvider, useStudio, useStudioStore } from '../context'
+import { Footer } from './Footer'
 import { Outliner } from './Outliner'
 import { Panel } from './Panel'
 import { injectStyles } from './styles'
@@ -98,6 +99,8 @@ function StudioUI({ levaStore }: { levaStore: LevaStore }) {
           <LevaPanel store={levaStore} fill flat titleBar={false} hideCopyButton />
         </div>
       </Panel>
+
+      <Footer />
     </>
   )
 }

@@ -26,10 +26,11 @@ Press **`F2`** to bring the editor up, and again to put it away.
 
 ## Status
 
-The editor lets you pick things in the rig, move them and edit every field.
-What it cannot do yet is save — the edits live in memory until you reload.
-They do survive being put away, and turning `debug` off as well: neither
-throws your work out.
+The editor lets you pick things in the rig, move them and edit every field,
+then hand the result back as JSON to paste over the file it came from. What it
+cannot do yet is write that file itself. Edits live in memory until you reload,
+but they survive being put away and turning `debug` off: neither throws your
+work out.
 
 - [x] Schema, parser and omit-defaults exporter
 - [x] Zustand store with history, solo and selection
@@ -41,6 +42,7 @@ throws your work out.
 - [x] Outliner — the rig as a list, with rename, on/off and solo
 - [x] Toggle key — the editor is armed by `debug`, shown by a keypress
 - [x] Keyboard undo/redo
+- [x] Copy the rig back out as JSON, formatted for the file it came from
 - [ ] Vite dev-server writeback (`Cmd+S` writes `lights.json` in place)
 - [ ] Fit-shadow-camera, presets, add/duplicate/delete, A/B compare
 
@@ -53,6 +55,7 @@ packages/light-studio/
   src/runtime/              LightStudio, LightRenderer, toggleKey — the production path
   src/debug/                lazy-loaded editor chunk
   src/debug/historyKeys.ts  Cmd+Z and Cmd+Shift+Z, bound while the editor shows
+  src/debug/exportSetup.ts  how the file looks — printing, not what goes in it
   src/debug/drawnLights.ts  which lights the editor draws anything for
   src/debug/helpers/        wireframes, built from the config
   src/debug/panel/          leva controls, built from the config
@@ -416,6 +419,46 @@ Two leva quirks worth knowing, because both look like bugs in this package:
   settings, and a settings object in argument three is dropped silently. The
   symptom is a panel that works but registers into leva's global store, so
   leva's own floating panel appears on top of this one.
+
+## Getting it back into the file
+
+A bar under the panels, with **Copy JSON** on it. That is the whole of it for
+now — the dev-server writeback that makes `Cmd+S` do this in place is next, and
+this is its fallback for anyone not on a Vite dev server.
+
+The bar reads **Edited** whenever the rig has drifted from the file, and stops
+saying so once you copy. Losing that word is the confirmation; the button also
+flashes _Copied_ for a couple of seconds.
+
+Copying counts as **saving**, and that is a real decision rather than an
+oversight. The paste that follows comes back in through the `setup` prop, and
+the editor refuses an incoming setup while there are unsaved edits — so
+staying dirty would make it reject the very file you just wrote. The cost is
+that a copy you never paste leaves the editor willing to take a new setup over
+the top of your edits.
+
+**The output is shaped for a file that gets committed and read in diffs.**
+
+- **`serializeSetup` writes only what was authored.** Anything still at its
+  default is left out, so defaults stay free to change and the file stays
+  about your rig rather than about the schema.
+- **Short number arrays stay on one line.** `[4, 6, 3]` is one value — a
+  position — and `JSON.stringify(x, null, 2)` spreads it over five. That would
+  turn nudging a light into a three-line diff and roughly triple the length of
+  the rig, so `exportSetup` prints it itself. Positions, targets, colours and
+  shadow frusta are all short number arrays, so the one rule covers the schema.
+- **Two spaces and a trailing newline**, which is where an editor or a
+  formatter would land anyway.
+
+Pasting over a hand-written file changes two things once, and then never
+again: a two-line `meta` block appears, and each light's keys are reordered
+into the order `LIGHT_DEFINITIONS` declares them.
+
+The clipboard write falls back to the old select-and-`execCommand` trick.
+`navigator.clipboard` exists only in a secure context, and a dev server reached
+from another machine on the network is plain http — which is exactly the setup
+you are in when you are tuning a scene on a phone. If both fail the button says
+_See console_, and the JSON is logged there rather than lost.
 
 ## Commands
 

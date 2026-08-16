@@ -1,5 +1,8 @@
 {
   "version": 1,
+  "meta": {
+    "generator": "r3f-light-studio"
+  },
   "renderer": {
     "toneMapping": "ACESFilmic",
     "exposure": 1.1
@@ -41,11 +44,11 @@
       "name": "Rim",
       "color": "#ffd9b3",
       "intensity": 60,
-      "position": [-2.5, 4, -5],
+      "position": [-6.654158442397424, 1.8227983689388267, -5],
       "target": [0, 1, 0],
+      "distance": 20,
       "angle": 0.5,
       "penumbra": 0.6,
-      "distance": 20,
       "shadow": {
         "enabled": true,
         "far": 25
