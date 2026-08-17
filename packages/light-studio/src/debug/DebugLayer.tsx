@@ -1,5 +1,5 @@
 import { useCreateStore } from 'leva'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 import type { LightSetup } from '../core/schema'
 import {
@@ -29,13 +29,24 @@ interface DebugLayerProps {
   toggleKey: ToggleKey | null
   /** Which target the dev-server plugin should write this rig to. */
   saveId: string
+  /**
+   * Whatever the app put in `<LightStudio.Environment>`. Passed straight
+   * through: it is the app's, so the editor neither draws it nor edits it.
+   */
+  environmentContent: ReactNode
 }
 
 /**
  * Owns the store and renders from it. That is the only difference from the
  * production path so far — helpers, gizmos and the panel slot in here.
  */
-export default function DebugLayer({ setup, onExit, toggleKey, saveId }: DebugLayerProps) {
+export default function DebugLayer({
+  setup,
+  onExit,
+  toggleKey,
+  saveId,
+  environmentContent,
+}: DebugLayerProps) {
   // Lazy initialiser, not useMemo: the store is created exactly once and must
   // not re-derive from `setup`, which would discard in-progress edits.
   const [store] = useState(() => {
@@ -114,12 +125,12 @@ export default function DebugLayer({ setup, onExit, toggleKey, saveId }: DebugLa
 
   return (
     <LightStudioStoreProvider value={store}>
-      <StudioScene />
+      <StudioScene environmentContent={environmentContent} />
     </LightStudioStoreProvider>
   )
 }
 
-function StudioScene() {
+function StudioScene({ environmentContent }: { environmentContent: ReactNode }) {
   const lights = useStudio(selectRenderableLights)
   const environment = useStudio(selectRenderableEnvironment)
   const forceBackground = useStudio((state) => state.forceBackground)
@@ -141,6 +152,7 @@ function StudioScene() {
           asked for stays, because that one is the rig. */}
       <LightRenderer
         environment={environment}
+        environmentContent={environmentContent}
         forceBackground={visible && forceBackground}
         lights={lights}
       />

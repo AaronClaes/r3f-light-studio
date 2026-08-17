@@ -1,4 +1,5 @@
 import { Environment, Lightformer } from '@react-three/drei'
+import { Children, useEffect, type ReactNode } from 'react'
 
 import type { EnvironmentConfig, EnvironmentPreset, LightformerConfig } from '../core/schema'
 
@@ -29,6 +30,17 @@ interface EnvironmentRigProps {
   /** Every lightformer in the rig that is currently reaching the scene. */
   lightformers: LightformerConfig[]
   /**
+   * Whatever the app put in `<LightStudio.Environment>`, drawn into the cube
+   * map beside the lightformers.
+   *
+   * Occluders, mostly — a dark mesh in front of a lightformer, cutting the
+   * light it throws. That is the one useful thing a lightformer cannot be, and
+   * it is not something the rig can hold: a mesh is geometry and a material,
+   * and a material is not JSON. So it stays the app's. The editor does not
+   * draw a helper for it, does not list it and cannot move it.
+   */
+  content?: ReactNode
+  /**
    * Shows the backdrop whatever the rig says. The editor's override, so you can
    * look straight at a lightformer without committing a background to the file.
    */
@@ -38,23 +50,35 @@ interface EnvironmentRigProps {
 export function EnvironmentRig({
   config,
   lightformers,
+  content = null,
   forceBackground = false,
 }: EnvironmentRigProps) {
   const source = sourceOf(config)
   const hasImage = 'files' in source || 'preset' in source
   const backdrop = backdropOf(config, forceBackground)
 
+  // `toArray` rather than `count`, because it drops the nulls and booleans a
+  // `{condition && …}` leaves behind. Counting those would mount an
+  // `<Environment>` around nothing and hand the scene a black cube.
+  const hasContent = Children.toArray(content).length > 0
+
   // Ground projection wraps the environment image around the horizon, so it
   // needs one, and drei drops the children when it is on. `parseSetup` says so
   // out loud; this is where it actually happens.
   const projected = config.ground.enabled && hasImage
 
+  // `parseSetup` warns about the lightformers this drops, but it only ever
+  // sees the file, and app content arrives as a prop. Same disappearance, so
+  // it gets the same warning — from here, where the prop is.
+  useGroundConflictWarning(projected && hasContent)
+
   const shapes =
-    projected || lightformers.length === 0 ? undefined : (
+    projected || (lightformers.length === 0 && !hasContent) ? undefined : (
       <>
         {lightformers.map((light) => (
           <LightformerNode key={light.id} light={light} />
         ))}
+        {content}
       </>
     )
 
@@ -91,6 +115,15 @@ export function EnvironmentRig({
       {shapes}
     </Environment>
   )
+}
+
+function useGroundConflictWarning(conflicted: boolean): void {
+  useEffect(() => {
+    if (!conflicted) return
+    console.warn(
+      '[LightStudio] Ground projection is on, so drei renders the ground instead of the environment’s children — nothing in <LightStudio.Environment> is reaching the cube map. Switch ground projection off to get it back.',
+    )
+  }, [conflicted])
 }
 
 /**

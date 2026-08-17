@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
 
 import type {
@@ -22,6 +22,8 @@ interface LightRendererProps {
   lights: LightConfig[]
   /** null when there is no environment to render, or it is switched off. */
   environment?: EnvironmentConfig | null
+  /** Whatever the app put in `<LightStudio.Environment>`. Hidden with it. */
+  environmentContent?: ReactNode
   /** Shows the backdrop whatever the rig says. The editor's override. */
   forceBackground?: boolean
 }
@@ -37,6 +39,7 @@ interface LightRendererProps {
 export function LightRenderer({
   lights,
   environment = null,
+  environmentContent = null,
   forceBackground = false,
 }: LightRendererProps) {
   useRectAreaLightUniforms(lights.some((light) => light.type === 'rectArea'))
@@ -57,6 +60,7 @@ export function LightRenderer({
       {environment ? (
         <EnvironmentRig
           config={environment}
+          content={environmentContent}
           forceBackground={forceBackground}
           lightformers={lightformers}
         />

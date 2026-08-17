@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { visibleLights } from '../core/lights'
 import { parseSetup } from '../core/parse'
 import { DEFAULT_SAVE_ID } from '../core/save'
 import type { LightSetup } from '../core/schema'
 import { LightRenderer } from './LightRenderer'
+import { splitSlots, StudioEnvironment } from './slots'
 import { DEFAULT_TOGGLE_KEY, type ToggleKey } from './toggleKey'
 
 /** Separate chunk, so no editor code reaches a production bundle. */
@@ -36,6 +37,11 @@ export interface LightStudioProps {
    * whether the editor was open when the tab last reloaded.
    */
   id?: string
+  /**
+   * Slots, not scene content. The only one so far is
+   * `<LightStudio.Environment>`; anything else is dropped with a warning.
+   */
+  children?: ReactNode
 }
 
 /**
@@ -57,12 +63,18 @@ export function LightStudio({
   debug = false,
   toggleKey = DEFAULT_TOGGLE_KEY,
   id = DEFAULT_SAVE_ID,
+  children,
 }: LightStudioProps) {
   const { setup: parsed, issues } = useMemo(() => parseSetup(setup), [setup])
+  const { environment: content, strays } = useMemo(() => splitSlots(children), [children])
 
   useEffect(() => {
     for (const issue of issues) console.warn(`[LightStudio] ${issue}`)
   }, [issues])
+
+  useEffect(() => {
+    for (const stray of strays) console.warn(`[LightStudio] ${stray}`)
+  }, [strays])
 
   /**
    * What the editor was holding when it closed.
@@ -87,7 +99,9 @@ export function LightStudio({
   const lights = useMemo(() => visibleLights(live.lights), [live.lights])
   const environment = live.environment.enabled ? live.environment : null
 
-  const rig = <LightRenderer environment={environment} lights={lights} />
+  const rig = (
+    <LightRenderer environment={environment} environmentContent={content} lights={lights} />
+  )
 
   if (!debug) return rig
 
@@ -98,7 +112,36 @@ export function LightStudio({
   // so arming again starts from the same place.
   return (
     <Suspense fallback={rig}>
-      <DebugLayer onExit={setEdited} saveId={id} setup={live} toggleKey={toggleKey} />
+      <DebugLayer
+        environmentContent={content}
+        onExit={setEdited}
+        saveId={id}
+        setup={live}
+        toggleKey={toggleKey}
+      />
     </Suspense>
   )
 }
+
+/**
+ * Puts its children in the rig's environment, next to its lightformers.
+ *
+ * For what the JSON cannot describe, which in practice means occluders — a
+ * dark mesh in front of a lightformer, cutting the light it throws. It is a
+ * marker: `LightStudio` reads it out of its children and renders the contents
+ * itself, so it has to be inside `<LightStudio>` and it is not a place to
+ * configure the environment. The preset, the backdrop and ground projection
+ * are the rig's, and they are edited in the panel.
+ *
+ * ```tsx
+ * <LightStudio setup={rig} debug>
+ *   <LightStudio.Environment>
+ *     <mesh position={[0, 3, 1]}>
+ *       <planeGeometry args={[2, 4]} />
+ *       <meshBasicMaterial color="black" />
+ *     </mesh>
+ *   </LightStudio.Environment>
+ * </LightStudio>
+ * ```
+ */
+LightStudio.Environment = StudioEnvironment

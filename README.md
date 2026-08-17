@@ -193,6 +193,52 @@ It has one field no other light has — `form`, one of `rect`, `circle`, `ring`
 or `box` — and its `width` and `height` are the same two numbers a `rectArea`
 light takes.
 
+### Meshes the rig cannot describe
+
+Lightformers add light. The other half of lighting is taking it away, and that
+is a mesh — a flag in front of a softbox, a cutter, a gobo. The rig cannot hold
+one: a mesh is geometry _and a material_, and a material is not JSON. Rather
+than grow a scene format to reach the useful 5% of one, there is a slot:
+
+```tsx
+<LightStudio setup={rig} debug>
+  <LightStudio.Environment>
+    <mesh position={[1.5, 1.9, 1.6]}>
+      <planeGeometry args={[2.4, 3.6]} />
+      <meshBasicMaterial color="black" side={DoubleSide} />
+    </mesh>
+  </LightStudio.Environment>
+</LightStudio>
+```
+
+Its children go where the lightformers go: into the cube map, beside them.
+
+**Children of `<LightStudio>` are a routing table, not a payload.** Letting bare
+children mean "put these in the environment" would spend the slot on one
+meaning, and on a surprising one — children normally render where the component
+is, so a mesh put there expecting your scene would land in an offscreen cube
+camera and never be seen. Naming the slot leaves room for a second one later
+without changing what the first meant. Anything unrecognised is dropped with a
+warning that says where it should have gone. Fragments are descended into, so
+the usual way a compound component loses a slot does not apply here.
+
+Two things about this are not obvious and will cost you an afternoon:
+
+- **The environment is rendered from a single point at the origin.** A flag only
+  cuts what it covers _from there_, not from your camera. Put it on the line
+  between the origin and the lightformer or it does exactly nothing. The one in
+  the playground takes about a third of the softbox; slide it sideways and it
+  takes none of it while still looking perfectly reasonable in your editor.
+- **`meshBasicMaterial` is `FrontSide` by default**, and a culled face occludes
+  nothing. A plane at `+Z` shows the camera at the origin its _back_. Use
+  `DoubleSide` unless you are sure which way it faces.
+
+The contents are the app's, so the editor leaves them entirely alone: no
+wireframe, no outliner row, no gizmo, nothing written to the file. They are
+hidden along with the environment when its eye is off, and dropped by ground
+projection exactly as lightformers are — with the same warning, raised at
+runtime rather than by `parseSetup`, which only ever sees the file.
+
 ### The backdrop
 
 An environment can also be the thing you see, not only the thing that lights:
@@ -246,7 +292,8 @@ renders one or the other. Turn the environment's ground off to see them.
 ```
 
 It also needs an image to project, and warns when there is a ground with no
-`preset` and no `files`.
+`preset` and no `files`. Anything in `<LightStudio.Environment>` goes the same
+way, and gets its own warning from `EnvironmentRig`.
 
 ### What this costs
 
