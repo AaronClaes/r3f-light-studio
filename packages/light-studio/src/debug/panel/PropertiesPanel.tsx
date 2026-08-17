@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 
 import { findLight } from '../../core/lights'
-import { ENVIRONMENT_ID, type LightSetup, type LightType } from '../../core/schema'
+import { ENVIRONMENT_ID, type LightEdit, type LightSetup, type LightType } from '../../core/schema'
 import type { StudioState } from '../../core/state'
 import { useStudio, useStudioStore } from '../context'
 import { environmentFields } from './environmentFields'
@@ -49,9 +49,22 @@ function LightFields({
   const store = useStudioStore()
   const fields = useMemo(() => fieldsFor(type), [type])
 
-  const select = useCallback((setup: LightSetup) => findLight(setup, id), [id])
+  // Type-checked, because these controls outlive a swap by one notification and
+  // would read fields the new type does not have.
+  const select = useCallback(
+    (setup: LightSetup) => {
+      const light = findLight(setup, id)
+      return light?.type === type ? light : undefined
+    },
+    [id, type],
+  )
+
   const write = useCallback(
-    (patch: Parameters<StudioState['updateLight']>[1]) => store.getState().updateLight(id, patch),
+    (edit: LightEdit) => {
+      const state = store.getState()
+      if ('type' in edit) state.setLightType(id, edit.type)
+      else state.updateLight(id, edit)
+    },
     [store, id],
   )
 

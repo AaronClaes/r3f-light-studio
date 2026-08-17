@@ -1,6 +1,8 @@
 import {
   LIGHT_DEFINITIONS,
+  LIGHT_TYPES,
   type LightConfig,
+  type LightEdit,
   type LightPatch,
   type LightType,
   type ShadowConfig,
@@ -17,6 +19,8 @@ import {
 } from './controls'
 
 /** What the panel shows for a light, derived from `LIGHT_DEFINITIONS`. */
+
+type LightField = Field<LightConfig, LightEdit>
 
 /** Feel, not validation. The hard ranges are `LIGHT_DEFINITIONS.clamp`. */
 const NUMBER_UI: Record<string, Control> = {
@@ -45,13 +49,29 @@ const FRUSTUM_FOLDER = 'frustum'
 /** Reads as a light property at the top level, where `enabled` would not. */
 const SHADOW_TOGGLE_LABEL = 'shadows'
 
-/** What the light emits, then what it casts, then where it is. */
+/** What the light is, then what it emits, then what it casts, then where it is. */
 const GROUP = {
-  lighting: 0,
+  type: 0,
+  lighting: 100,
   shadows: 1000,
   shadow: 2000,
   frustum: 2500,
   transform: 3000,
+}
+
+/** Label to value, which is the only form leva reads as a menu. */
+const TYPE_OPTIONS = Object.fromEntries(
+  LIGHT_TYPES.map((type) => [LIGHT_DEFINITIONS[type].label, type]),
+)
+
+/** The one control that replaces the light rather than patching it. */
+const TYPE_FIELD: LightField = {
+  key: 'type',
+  path: [],
+  order: GROUP.type,
+  input: (light) => ({ options: TYPE_OPTIONS, value: light.type }),
+  read: (light) => light.type,
+  patch: (_light, value) => ({ type: value as LightType }),
 }
 
 /** Each side with its slot in `ShadowFrustum`. */
@@ -62,13 +82,13 @@ const FRUSTUM_SIDES = [
   ['bottom', 3],
 ] as const
 
-export function fieldsFor(type: LightType): Field[] {
+export function fieldsFor(type: LightType): LightField[] {
   const definition = LIGHT_DEFINITIONS[type]
   const clamps: Record<string, [number, number]> = definition.clamp ?? {}
 
-  const lighting: Field[] = []
-  const shadow: Field[] = []
-  const transform: Field[] = []
+  const lighting: LightField[] = []
+  const shadow: LightField[] = []
+  const transform: LightField[] = []
 
   for (const [key, fallback] of entriesOf(definition.defaults)) {
     if (IN_OUTLINER.has(key)) continue
@@ -100,11 +120,11 @@ export function fieldsFor(type: LightType): Field[] {
     })
   }
 
-  return [...lighting, ...shadow, ...transform]
+  return [TYPE_FIELD, ...lighting, ...shadow, ...transform]
 }
 
-function shadowFields(fallback: ShadowConfig): Field[] {
-  const fields: Field[] = []
+function shadowFields(fallback: ShadowConfig): LightField[] {
+  const fields: LightField[] = []
 
   for (const [key, value] of entriesOf(fallback)) {
     if (key === 'frustum') {
@@ -137,7 +157,7 @@ function shadowFields(fallback: ShadowConfig): Field[] {
 }
 
 /** Leva's vector inputs are 2- and 3-component, so a four-tuple becomes four numbers. */
-function frustumFields(): Field[] {
+function frustumFields(): LightField[] {
   return FRUSTUM_SIDES.map(([side, index]) => ({
     key: `frustum-${side}`,
     path: [SHADOW_FOLDER, FRUSTUM_FOLDER],

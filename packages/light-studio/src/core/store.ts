@@ -1,7 +1,13 @@
 import { createStore } from 'zustand/vanilla'
 
-import { createLight, findLight, uniqueId, visibleLights } from './lights'
-import { ENVIRONMENT_ID, type EnvironmentConfig, type LightConfig, type LightSetup } from './schema'
+import { convertLight, createLight, findLight, uniqueId, visibleLights } from './lights'
+import {
+  ENVIRONMENT_ID,
+  LIGHT_DEFINITIONS,
+  type EnvironmentConfig,
+  type LightConfig,
+  type LightSetup,
+} from './schema'
 import type { StudioState } from './state'
 import { forkWith, park, sameFile } from './workspaces'
 
@@ -100,6 +106,21 @@ export function createLightStudioStore(initial: LightSetup) {
         })
         set({ selectedId: id, selectedField: 'position' })
         return id
+      },
+
+      setLightType: (id, type) => {
+        const light = findLight(get().setup, id)
+        if (!light || light.type === type) return
+
+        commit((draft) => {
+          draft.lights = draft.lights.map((one) => (one.id === id ? convertLight(one, type) : one))
+          if (type === 'lightformer') draft.environment.enabled = true
+        })
+
+        // The gizmo has nothing to grab once the target is gone.
+        if (get().selectedId === id && !('target' in LIGHT_DEFINITIONS[type].defaults)) {
+          set({ selectedField: 'position' })
+        }
       },
 
       removeLight: (id) => {

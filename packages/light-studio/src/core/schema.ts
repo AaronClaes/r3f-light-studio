@@ -180,6 +180,9 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 /** Distributes, so `{ angle }` is accepted but no member also has `groundColor`. */
 export type LightPatch = Partial<DistributiveOmit<LightConfig, 'id' | 'type'>>
 
+/** What the panel writes: fields, or the swap that replaces the light entirely. */
+export type LightEdit = LightPatch | { type: LightType }
+
 /** drei's hosted HDRIs. Written out, so the format does not move when drei ships an eleventh. */
 export const ENVIRONMENT_PRESETS = [
   'apartment',

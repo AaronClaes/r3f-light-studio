@@ -69,6 +69,8 @@ export interface StudioState extends LiveWorkspace {
   updateLight: (id: string, patch: LightPatch) => void
   updateEnvironment: (patch: Partial<EnvironmentConfig>) => void
   addLight: (type: LightType) => string
+  /** Retypes in place, keeping what the two types share. See `convertLight`. */
+  setLightType: (id: string, type: LightType) => void
   removeLight: (id: string) => void
   duplicateLight: (id: string) => string | null
 
