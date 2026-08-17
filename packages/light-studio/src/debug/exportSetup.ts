@@ -30,7 +30,9 @@ const INDENT = '  '
 function print(value: unknown, indent: string): string {
   if (Array.isArray(value)) {
     if (value.length === 0) return '[]'
-    if (value.every((item) => typeof item === 'number')) return `[${value.join(', ')}]`
+    if (value.every((item) => typeof item === 'number')) {
+      return `[${value.map(round).join(', ')}]`
+    }
 
     const inner = indent + INDENT
     const items = value.map((item) => inner + print(item, inner))
@@ -55,4 +57,21 @@ function print(value: unknown, indent: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+/**
+ * Three decimals, which at scene scale is a millimetre.
+ *
+ * A dragged gizmo hands the store the full float — `-6.654158442397424` — and
+ * seventeen digits per axis is unreadable in a file you review by hand. Only
+ * the numbers inside arrays go through this, which in this schema means
+ * positions, targets and shadow frusta. Scalars are left exactly as they are:
+ * an intensity of `0.0001` is a real value that rounding to three places would
+ * flatten to zero.
+ */
+function round(value: number): number {
+  if (!Number.isFinite(value)) return value
+  const rounded = Math.round(value * 1000) / 1000
+  // `Math.round(-0.0004 * 1000) / 1000` is -0, which prints as "-0".
+  return Object.is(rounded, -0) ? 0 : rounded
 }

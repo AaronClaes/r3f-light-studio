@@ -26,11 +26,12 @@ Press **`F2`** to bring the editor up, and again to put it away.
 
 ## Status
 
-The editor lets you pick things in the rig, move them and edit every field,
-then hand the result back as JSON to paste over the file it came from. What it
-cannot do yet is write that file itself. Edits live in memory until you reload,
-but they survive being put away and turning `debug` off: neither throws your
-work out.
+The editor lets you pick things in the rig, move them and edit every field, and
+`Cmd+S` writes the result back over the file it came from. The loop is closed:
+tweak the lights, save, commit the diff. Without the Vite plugin it hands the
+JSON back through the clipboard instead, and edits live in memory until you
+reload — surviving being put away and turning `debug` off, since neither throws
+your work out.
 
 - [x] Schema, parser and omit-defaults exporter
 - [x] Zustand store with history, solo and selection
@@ -43,7 +44,7 @@ work out.
 - [x] Toggle key — the editor is armed by `debug`, shown by a keypress
 - [x] Keyboard undo/redo
 - [x] Copy the rig back out as JSON, formatted for the file it came from
-- [ ] Vite dev-server writeback (`Cmd+S` writes `lights.json` in place)
+- [x] Vite dev-server writeback — `Cmd+S` writes the file in place
 - [ ] Fit-shadow-camera, presets, add/duplicate/delete, A/B compare
 
 ## Layout
@@ -52,6 +53,8 @@ work out.
 apps/playground/            test scene
 packages/light-studio/
   src/core/                 schema, lights, parse, serialize, store — no r3f, no UI
+  src/core/save.ts          the contract the plugin and the editor both import
+  src/vite/                 the dev-server plugin — Node only, never bundled
   src/runtime/              LightStudio, LightRenderer, toggleKey — the production path
   src/debug/                lazy-loaded editor chunk
   src/debug/historyKeys.ts  Cmd+Z and Cmd+Shift+Z, bound while the editor shows
@@ -436,13 +439,12 @@ Two leva quirks worth knowing, because both look like bugs in this package:
 
 ## Getting it back into the file
 
-A bar under the panels, with **Copy JSON** on it. That is the whole of it for
-now — the dev-server writeback that makes `Cmd+S` do this in place is next, and
-this is its fallback for anyone not on a Vite dev server.
+A bar under the panels. **Save** writes the file when there is a Vite plugin to
+do it; **Copy JSON** is always there for when there is not.
 
 The bar reads **Edited** whenever the rig has drifted from the file, and stops
-saying so once you copy. Losing that word is the confirmation; the button also
-flashes _Copied_ for a couple of seconds.
+saying so once you save or copy. Losing that word is the confirmation; the
+button also flashes for a couple of seconds.
 
 **Reset** sits next to it, and only while there is something to discard. A
 reset button that is always there is a standing invitation to throw the session
@@ -467,6 +469,11 @@ the top of your edits.
   turn nudging a light into a three-line diff and roughly triple the length of
   the rig, so `exportSetup` prints it itself. Positions, targets, colours and
   shadow frusta are all short number arrays, so the one rule covers the schema.
+- **Numbers in those arrays round to three decimals**, a millimetre at scene
+  scale. A dragged gizmo hands the store `-6.654158442397424`, and seventeen
+  digits per axis is unreadable in a file you review by hand. Scalars are left
+  alone: an intensity of `0.0001` is a real value that the same rounding would
+  flatten to zero.
 - **Two spaces and a trailing newline**, which is where an editor or a
   formatter would land anyway.
 
@@ -479,6 +486,65 @@ The clipboard write falls back to the old select-and-`execCommand` trick.
 from another machine on the network is plain http — which is exactly the setup
 you are in when you are tuning a scene on a phone. If both fail the button says
 _See console_, and the JSON is logged there rather than lost.
+
+## The Vite plugin
+
+```ts
+// vite.config.ts
+import { lightStudio } from 'r3f-light-studio/vite'
+
+export default defineConfig({
+  plugins: [react(), lightStudio('src/lights.json')],
+})
+```
+
+That is it. `Cmd+S` — or `Ctrl+S` — now writes the file, and the **Save**
+button appears in the bar. Several rigs get an object, and each component names
+the key it belongs to:
+
+```ts
+plugins: [lightStudio({ hero: 'src/hero.json', product: 'src/product.json' })]
+```
+
+```tsx
+<LightStudio id="hero" setup={hero} debug />
+```
+
+A bare string is sugar for one target under the id a component gets when it
+names none, so the single-rig case needs nothing on the component. An `id`
+nobody declared gets **no Save button and a console warning** — you configured
+the plugin, so a button silently missing would be the wrong answer.
+
+**The browser never sends a path.** It sends one of the ids from your config
+and the server looks the path up, so there is nothing a page can say to this
+that talks it into writing somewhere it was not told about. That is worth more
+than it looks: a dev server is often listening on the network and not only on
+localhost. The plugin is `apply: 'serve'`, so none of it survives a build.
+
+**Saving does not cost you your session.** The write goes to disk, Vite notices
+the JSON change and pushes it back through the import, and the editor sees a
+new `setup` a moment after the one it already had. Reloading on that would
+clear the selection, the solo and the whole undo stack on every save. So the
+incoming rig is compared — as the text that _would_ be written, since a round
+trip through the file is not identity-preserving — against what was last
+saved, and an exact match is recognised as the editor's own echo and ignored.
+Edit the file in your editor instead and it differs, so it still loads.
+
+Three details worth knowing:
+
+- **It is a `fetch` to dev-server middleware, not Vite's HMR channel.** The HMR
+  channel would have been tidier and does not survive publication: an installed
+  package is pre-bundled out of `node_modules` and Vite gives that code no HMR
+  context, so `import.meta.hot` would be undefined for exactly the people who
+  install this. It works in a workspace only because the link resolves to
+  source.
+- **A dev server without the plugin answers `/__light-studio/targets` with
+  `200 text/html`** — the SPA fallback. A status check alone would conclude the
+  plugin was there, so the reply has to carry a marker before it is believed.
+- **The plugin file is the one place in the package that names a `.ts`
+  extension on an import.** Every other file is resolved by Vite; this one is
+  loaded by Node while it reads your config, and Node will not guess at a
+  missing extension.
 
 ## Commands
 

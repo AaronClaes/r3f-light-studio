@@ -295,6 +295,26 @@ const CSS = `
 .ls-copy[data-status='copied'] { background: #2f7d52; }
 .ls-copy[data-status='failed'] { background: #8a3b3b; }
 
+/* The primary action when there is a dev server to take it, so it is the one
+   thing in the bar carrying the accent. Rightmost, where the last button was. */
+.ls-save {
+  flex: none;
+  height: 18px;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--ls-accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ls-save:hover { background: #3395ff; }
+.ls-save:focus-visible { outline: 1px solid var(--ls-text); outline-offset: 1px; }
+.ls-save[data-status='saved'] { background: #2f7d52; }
+.ls-save[data-status='failed'] { background: #8a3b3b; }
+
 /* Leva fills the slot. Kept mounted while nothing is selected: unmounting it
    hands the panel back to leva's own floating root. */
 .ls-slot { overflow-y: auto; }

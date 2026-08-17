@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 
 import { visibleLights } from '../core/lights'
 import { parseSetup } from '../core/parse'
+import { DEFAULT_SAVE_ID } from '../core/save'
 import type { LightSetup } from '../core/schema'
 import { LightRenderer } from './LightRenderer'
 import { RendererSettings } from './RendererSettings'
@@ -23,6 +24,14 @@ export interface LightStudioProps {
   debug?: boolean
   /** Shows and hides the editor. Defaults to F2; `null` binds nothing. */
   toggleKey?: ToggleKey | null
+  /**
+   * Which file the dev-server plugin writes this rig back to.
+   *
+   * Only needed when `lightStudio()` in your Vite config was given an object
+   * of several rigs — the key you gave it goes here. A plugin configured with
+   * a single path needs nothing.
+   */
+  id?: string
   /** Set false to keep your own tone mapping and exposure. */
   applyRenderer?: boolean
 }
@@ -31,6 +40,7 @@ export function LightStudio({
   setup,
   debug = false,
   toggleKey = DEFAULT_TOGGLE_KEY,
+  id = DEFAULT_SAVE_ID,
   applyRenderer = true,
 }: LightStudioProps) {
   const { setup: parsed, issues } = useMemo(() => parseSetup(setup), [setup])
@@ -79,6 +89,7 @@ export function LightStudio({
       <DebugLayer
         applyRenderer={applyRenderer}
         onExit={setEdited}
+        saveId={id}
         setup={live}
         toggleKey={toggleKey}
       />

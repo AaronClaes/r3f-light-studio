@@ -1,32 +1,25 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { isTyping } from '../../runtime/keyboard'
 import { useStudio, useStudioStore } from '../context'
 import { setupToJson } from '../exportSetup'
+import { saveSetup } from '../save'
 
 /**
  * The bar under the panels: whether the rig has drifted from the file, and how
  * to get it back into one.
  *
  * Outside both panels rather than in either header, because it is about the
- * whole rig and it has to survive collapsing them. It is also where the
- * dev-server save will go, which is why it is a bar and not a button.
+ * whole rig and it has to survive collapsing them.
  */
 export function Footer() {
   const dirty = useStudio((state) => state.dirty)
+  const visible = useStudio((state) => state.visible)
+  const saveTarget = useStudio((state) => state.saveTarget)
   const store = useStudioStore()
-  const [status, setStatus] = useState<Status>('idle')
 
-  // Held in a ref rather than driven by an effect on `status`, so a second
-  // copy within the two seconds restarts the confirmation instead of
-  // inheriting what is left of the first one's timer.
-  const timer = useRef<number | undefined>(undefined)
-  useEffect(() => () => clearTimeout(timer.current), [])
-
-  const flash = (next: Status) => {
-    clearTimeout(timer.current)
-    setStatus(next)
-    timer.current = window.setTimeout(() => setStatus('idle'), 2000)
-  }
+  const copyFlash = useFlash<CopyStatus>('idle')
+  const saveFlash = useFlash<SaveStatus>('idle')
 
   const copy = async () => {
     const json = setupToJson(store.getState().setup)
@@ -35,7 +28,7 @@ export function Footer() {
       // The JSON is the work. Losing it to a failed clipboard write would be
       // worse than the failure, so it goes somewhere it can still be got at.
       console.warn(`[LightStudio] Could not reach the clipboard. The setup is:\n${json}`)
-      flash('failed')
+      copyFlash.flash('failed')
       return
     }
 
@@ -45,8 +38,33 @@ export function Footer() {
     // just wrote. The cost is that a copy you never paste leaves the editor
     // willing to take a new setup over the top of your edits.
     store.getState().markSaved()
-    flash('copied')
+    copyFlash.flash('copied')
   }
+
+  const save = useCallback(async () => {
+    const state = store.getState()
+    const target = state.saveTarget
+    if (!target) return
+
+    const error = await saveSetup(target.id, setupToJson(state.setup))
+    if (error) {
+      console.warn(`[LightStudio] Could not write ${target.path}. ${error}`)
+      saveFlash.flash('failed')
+      return
+    }
+
+    // Before the file finds its way back through the import, not after.
+    // DebugLayer compares whatever arrives against the baseline this sets, and
+    // recognising its own write is what keeps a save from clearing the
+    // selection and the undo stack.
+    store.getState().markSaved()
+    saveFlash.flash('saved')
+  }, [store, saveFlash])
+
+  // Only while the editor is on screen and there is somewhere to write. Put
+  // away, Cmd+S is the browser's, and taking it to do nothing would be worse
+  // than not taking it.
+  useSaveKey(visible && saveTarget !== null, save)
 
   return (
     <footer className="ls-footer">
@@ -69,20 +87,105 @@ export function Footer() {
         </>
       ) : null}
 
-      <button type="button" className="ls-copy" data-status={status} onClick={copy}>
-        {LABELS[status]}
+      {/* Kept even when saving works. Not everyone editing a rig is on a Vite
+          dev server — a Storybook, a deployed preview, someone else's app —
+          and this is the one way out that needs nothing installed. */}
+      <button
+        type="button"
+        className="ls-copy"
+        data-status={copyFlash.status}
+        onClick={copy}
+        title="Copy the rig as JSON, to paste over the file."
+      >
+        {COPY_LABELS[copyFlash.status]}
       </button>
+
+      {saveTarget ? (
+        <button
+          type="button"
+          className="ls-save"
+          data-status={saveFlash.status}
+          onClick={save}
+          title={`Write ${saveTarget.path} (${SAVE_KEY_LABEL})`}
+        >
+          {SAVE_LABELS[saveFlash.status]}
+        </button>
+      ) : null}
     </footer>
   )
 }
 
-type Status = 'idle' | 'copied' | 'failed'
+type CopyStatus = 'idle' | 'copied' | 'failed'
+type SaveStatus = 'idle' | 'saved' | 'failed'
 
-const LABELS: Record<Status, string> = {
+const COPY_LABELS: Record<CopyStatus, string> = {
   idle: 'Copy JSON',
   copied: 'Copied',
   failed: 'See console',
 }
+
+const SAVE_LABELS: Record<SaveStatus, string> = {
+  idle: 'Save',
+  saved: 'Saved',
+  failed: 'Failed',
+}
+
+/**
+ * A label that says what just happened and then goes back to saying what the
+ * button does.
+ *
+ * The timer is a ref rather than an effect on the status, so pressing twice
+ * inside the two seconds restarts the confirmation instead of inheriting what
+ * was left of the first one's.
+ */
+function useFlash<T extends string>(idle: T) {
+  const [status, setStatus] = useState<T>(idle)
+  const timer = useRef<number | undefined>(undefined)
+
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  const flash = useCallback(
+    (next: T) => {
+      clearTimeout(timer.current)
+      setStatus(next)
+      timer.current = window.setTimeout(() => setStatus(idle), 2000)
+    },
+    [idle],
+  )
+
+  return { status, flash }
+}
+
+/**
+ * Cmd+S, or Ctrl+S. Both are accepted so one build behaves natively on either
+ * platform, and `preventDefault` is the point as much as the save is — the
+ * alternative is the browser offering to write the page to your downloads.
+ */
+function useSaveKey(active: boolean, onSave: () => void): void {
+  const latest = useRef(onSave)
+  useEffect(() => {
+    latest.current = onSave
+  })
+
+  useEffect(() => {
+    if (!active) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return
+      if (event.code !== 'KeyS' && event.key.toLowerCase() !== 's') return
+      if (isTyping(event.target)) return
+
+      event.preventDefault()
+      latest.current()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [active])
+}
+
+/** Only ever shown in a tooltip, so a cheap platform guess is good enough. */
+const SAVE_KEY_LABEL = /mac/i.test(navigator.platform) ? 'Cmd+S' : 'Ctrl+S'
 
 /**
  * The clipboard API, then the old selection trick.

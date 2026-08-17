@@ -7,11 +7,13 @@ import { LightRenderer } from '../runtime/LightRenderer'
 import { RendererSettings } from '../runtime/RendererSettings'
 import { describeToggleKey, useToggleKey, type ToggleKey } from '../runtime/toggleKey'
 import { LightStudioStoreProvider, useStudio } from './context'
+import { setupToJson } from './exportSetup'
 import { LightHelpers } from './helpers/LightHelpers'
 import { useHistoryKeys } from './historyKeys'
 import { LightGizmo } from './LightGizmo'
 import { LightHandles } from './LightHandles'
 import { LightPanel } from './panel/LightPanel'
+import { findSaveTarget } from './save'
 import { DebugUI } from './ui/DebugUI'
 
 interface DebugLayerProps {
@@ -21,13 +23,21 @@ interface DebugLayerProps {
   onExit: (setup: LightSetup) => void
   /** Shows and hides the editor. `null` binds nothing. */
   toggleKey: ToggleKey | null
+  /** Which target the dev-server plugin should write this rig to. */
+  saveId: string
 }
 
 /**
  * Owns the store and renders from it. That is the only difference from the
  * production path so far — helpers, gizmos and the panel slot in here.
  */
-export default function DebugLayer({ setup, applyRenderer, onExit, toggleKey }: DebugLayerProps) {
+export default function DebugLayer({
+  setup,
+  applyRenderer,
+  onExit,
+  toggleKey,
+  saveId,
+}: DebugLayerProps) {
   // Lazy initialiser, not useMemo: the store is created exactly once and must
   // not re-derive from `setup`, which would discard in-progress edits.
   const [store] = useState(() => createLightStudioStore(setup))
@@ -44,6 +54,18 @@ export default function DebugLayer({ setup, applyRenderer, onExit, toggleKey }: 
   useEffect(() => {
     store.getState().setToggleHint(toggleHint)
   }, [store, toggleHint])
+
+  // Asked once, on mount: whether there is a dev-server plugin willing to
+  // write this rig, and where. The Save button exists only if there is.
+  useEffect(() => {
+    let current = true
+    void findSaveTarget(saveId).then((target) => {
+      if (current) store.getState().setSaveTarget(target)
+    })
+    return () => {
+      current = false
+    }
+  }, [store, saveId])
 
   useEffect(() => {
     return () => {
@@ -63,6 +85,18 @@ export default function DebugLayer({ setup, applyRenderer, onExit, toggleKey }: 
       )
       return
     }
+
+    // Our own write, coming back. Saving rewrites the file, Vite notices and
+    // pushes the JSON through the import, and this effect sees a new setup a
+    // moment after the one it already has. Reloading on that would clear the
+    // selection, the solo and the whole undo stack every time you hit save.
+    //
+    // Compared as the text that would be written rather than by identity,
+    // because the round trip through the file is not identity-preserving. A
+    // genuine outside edit differs and still loads; an outside edit that
+    // happens to match is a no-op worth skipping anyway.
+    if (setupToJson(setup) === setupToJson(state.baseline)) return
+
     state.loadSetup(setup)
   }, [store, setup])
 

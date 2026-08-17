@@ -1,6 +1,7 @@
 import { createStore } from 'zustand/vanilla'
 
 import { createLight, uniqueId, visibleLights } from './lights'
+import type { SaveTarget } from './save'
 import {
   DEFAULT_RENDERER,
   type LightConfig,
@@ -53,6 +54,15 @@ export interface StudioState {
    * is a dead end.
    */
   toggleHint: string | null
+  /**
+   * Where the dev-server plugin will write, or null when there is nowhere.
+   *
+   * Crosses into the panels for the same reason as the two above. Null is the
+   * answer for every way saving can be unavailable — no plugin, no dev server,
+   * an id nobody declared — because the button only needs to know whether to
+   * exist.
+   */
+  saveTarget: SaveTarget | null
   dirty: boolean
   past: LightSetup[]
   future: LightSetup[]
@@ -74,6 +84,7 @@ export interface StudioState {
   setVisible: (next: boolean) => void
   toggleVisible: () => void
   setToggleHint: (hint: string | null) => void
+  setSaveTarget: (target: SaveTarget | null) => void
 
   updateLight: (id: string, patch: LightPatch) => void
   addLight: (type: LightType) => string
@@ -140,6 +151,7 @@ export function createLightStudioStore(initial: LightSetup) {
       // `debug` is on, and the toggle key is what puts it on screen.
       visible: false,
       toggleHint: null,
+      saveTarget: null,
       dirty: false,
       past: [],
       future: [],
@@ -162,6 +174,7 @@ export function createLightStudioStore(initial: LightSetup) {
       setVisible: (next) => set({ visible: next }),
       toggleVisible: () => set((state) => ({ visible: !state.visible })),
       setToggleHint: (hint) => set({ toggleHint: hint }),
+      setSaveTarget: (target) => set({ saveTarget: target }),
 
       updateLight: (id, patch) =>
         commit((draft) => {

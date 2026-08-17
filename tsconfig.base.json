@@ -15,6 +15,9 @@
 
     "noEmit": true,
     "isolatedModules": true,
+    // For the Vite plugin only, which Node loads straight from source while it
+    // reads vite.config and so needs the extension spelled out.
+    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
     "skipLibCheck": true

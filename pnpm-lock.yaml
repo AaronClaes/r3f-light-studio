@@ -12,6 +12,9 @@ catalogs:
     '@react-three/fiber':
       specifier: 9.7.0
       version: 9.7.0
+    '@types/node':
+      specifier: 24.10.1
+      version: 24.10.1
     '@types/react':
       specifier: 19.2.18
       version: 19.2.18
@@ -95,13 +98,13 @@ importers:
         version: 0.185.4
       '@vitejs/plugin-react':
         specifier: 'catalog:'
-        version: 6.0.5(vite@8.2.1)
+        version: 6.0.5(vite@8.2.1(@types/node@24.10.1))
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
       vite:
         specifier: 'catalog:'
-        version: 8.2.1
+        version: 8.2.1(@types/node@24.10.1)
 
   packages/light-studio:
     dependencies:
@@ -118,6 +121,9 @@ importers:
       '@react-three/fiber':
         specifier: 'catalog:'
         version: 9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1)
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.1
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.18
@@ -139,6 +145,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      vite:
+        specifier: 'catalog:'
+        version: 8.2.1(@types/node@24.10.1)
 
 packages:
 
@@ -789,6 +798,9 @@ packages:
   '@types/draco3d@1.4.10':
     resolution: {integrity: sha512-AX22jp8Y7wwaBgAixaSvkoG4M/+PlAcm3Qs4OW8yT9DM4xUpWKeFhLueTAyZF39pviAdcDdeJoACapiAceqNcw==}
 
+  '@types/node@24.10.1':
+    resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
+
   '@types/offscreencanvas@2019.7.3':
     resolution: {integrity: sha512-ieXiYmgSRXUDeOntE1InxjWyvEelZGP63M+cGuquuRLuIKKT1osnkXjxev9B7d1nXSug5vpunx+gNlbVxMlC9A==}
 
@@ -1385,6 +1397,9 @@ packages:
     engines: {node: '>=16.20.0'}
     hasBin: true
 
+  undici-types@7.16.0:
+    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
+
   use-sync-external-store@1.6.0:
     resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
     peerDependencies:
@@ -1932,6 +1947,10 @@ snapshots:
 
   '@types/draco3d@1.4.10': {}
 
+  '@types/node@24.10.1':
+    dependencies:
+      undici-types: 7.16.0
+
   '@types/offscreencanvas@2019.7.3': {}
 
   '@types/react-dom@19.2.4(@types/react@19.2.18)':
@@ -2026,10 +2045,10 @@ snapshots:
       '@use-gesture/core': 10.3.1
       react: 19.2.8
 
-  '@vitejs/plugin-react@6.0.5(vite@8.2.1)':
+  '@vitejs/plugin-react@6.0.5(vite@8.2.1(@types/node@24.10.1))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 8.2.1
+      vite: 8.2.1(@types/node@24.10.1)
 
   assign-symbols@1.0.0: {}
 
@@ -2469,6 +2488,8 @@ snapshots:
       '@typescript/typescript-win32-arm64': 7.0.2
       '@typescript/typescript-win32-x64': 7.0.2
 
+  undici-types@7.16.0: {}
+
   use-sync-external-store@1.6.0(react@19.2.8):
     dependencies:
       react: 19.2.8
@@ -2477,7 +2498,7 @@ snapshots:
 
   v8n@1.5.1: {}
 
-  vite@8.2.1:
+  vite@8.2.1(@types/node@24.10.1):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.5
@@ -2485,6 +2506,7 @@ snapshots:
       rolldown: 1.2.4
       tinyglobby: 0.2.17
     optionalDependencies:
+      '@types/node': 24.10.1
       fsevents: 2.3.3
 
   webgl-constants@1.1.1: {}
