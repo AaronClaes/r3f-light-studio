@@ -27,8 +27,9 @@ across reloads until you close it.
 
 ## Status
 
-The editor lets you pick things in the rig, move them and edit every field, and
-`Cmd+S` writes the result back over the file it came from. The loop is closed:
+The editor lets you pick things in the rig, move them, edit every field, add
+and remove lights, and `Cmd+S` writes the result back over the file it came
+from. The loop is closed:
 tweak the lights, save, commit the diff. Without the Vite plugin it hands the
 JSON back through the clipboard instead, and edits live in memory until you
 reload — surviving being put away and turning `debug` off, since neither throws
@@ -46,7 +47,8 @@ your work out.
 - [x] Keyboard undo/redo
 - [x] Copy the rig back out as JSON, formatted for the file it came from
 - [x] Vite dev-server writeback — `Cmd+S` writes the file in place
-- [ ] Fit-shadow-camera, presets, add/duplicate/delete, A/B compare
+- [x] Add, duplicate and delete lights — the rig's shape, not just its values
+- [ ] Fit-shadow-camera, presets, renderer panel, A/B compare
 
 ## Layout
 
@@ -59,6 +61,7 @@ packages/light-studio/
   src/runtime/              LightStudio, LightRenderer, toggleKey — the production path
   src/debug/                lazy-loaded editor chunk
   src/debug/historyKeys.ts  Cmd+Z and Cmd+Shift+Z, bound while the editor shows
+  src/debug/lightKeys.ts    Cmd+D and Delete, on the selected light
   src/debug/exportSetup.ts  how the file looks — printing, not what goes in it
   src/debug/drawnLights.ts  which lights the editor draws anything for
   src/debug/helpers/        wireframes, built from the config
@@ -381,6 +384,32 @@ stroke has to be able to repeat a value over a row without flipping it back.
 
 It is also how you reach an ambient light. They have no position, so no handle,
 so before this the only way to select one was a dropdown.
+
+#### Changing the rig, not just its values
+
+The **+** in the header opens the list of types; picking one adds it, selects
+it, and puts the gizmo on it, so the next thing you do can be dragging it. A
+new light lands on its type's default position — `[5, 5, 5]` for a directional,
+`[0, 4, 0]` for a spot — rather than at the origin, which is usually inside the
+subject. It serialises to two lines, because everything else about it still
+matches the defaults the exporter omits:
+
+```json
+{ "id": "spot", "type": "spot" }
+```
+
+**Duplicate and delete take the type label's place** on the row you are
+pointing at, and on the selected row. Six controls do not fit in 280px, and the
+label is the one thing there that the swatch, the name and the properties panel
+all repeat — the swap costs the name nothing. From the keyboard it is `Cmd+D`
+and `Delete`, on the selected light, bound only while the editor shows and
+ignored while you are typing in a field.
+
+**Nothing here asks you to confirm.** Both go through the store's single write
+path, so both are one undo step, and `Cmd+Z` is a better answer to one mistaken
+delete than a dialog is to every deliberate one. Deleting clears the selection
+rather than moving it to a neighbour, which is also what stops a held `Delete`
+from walking through the rig.
 
 ### The properties panel
 

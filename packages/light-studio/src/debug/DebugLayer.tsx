@@ -12,6 +12,7 @@ import { LightHelpers } from './helpers/LightHelpers'
 import { useHistoryKeys } from './historyKeys'
 import { LightGizmo } from './LightGizmo'
 import { LightHandles } from './LightHandles'
+import { useLightKeys } from './lightKeys'
 import { LightPanel } from './panel/LightPanel'
 import { readVisible, writeVisible } from './persistVisible'
 import { findSaveTarget } from './save'
@@ -127,10 +128,11 @@ function StudioScene({ applyRenderer }: { applyRenderer: boolean }) {
   const lights = useStudio(selectRenderableLights)
   const visible = useStudio((state) => state.visible)
 
-  // Here rather than in a component of its own: it is the first thing in the
-  // studio that is neither scene content nor panel, and this is the innermost
+  // Here rather than in a component of their own: they are the things in the
+  // studio that are neither scene content nor panel, and this is the innermost
   // place that can see the store.
   useHistoryKeys(visible)
+  useLightKeys(visible)
 
   // Created here, above both React roots, because the controls are registered
   // from this tree and the panel that shows them is rendered in the other one.

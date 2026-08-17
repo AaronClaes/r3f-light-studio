@@ -4,6 +4,7 @@ import { isTyping } from '../../runtime/keyboard'
 import { useStudio, useStudioStore } from '../context'
 import { setupToJson } from '../exportSetup'
 import { saveSetup } from '../save'
+import { MOD } from './platform'
 
 /**
  * The bar under the panels: whether the rig has drifted from the file, and how
@@ -184,8 +185,7 @@ function useSaveKey(active: boolean, onSave: () => void): void {
   }, [active])
 }
 
-/** Only ever shown in a tooltip, so a cheap platform guess is good enough. */
-const SAVE_KEY_LABEL = /mac/i.test(navigator.platform) ? 'Cmd+S' : 'Ctrl+S'
+const SAVE_KEY_LABEL = `${MOD}+S`
 
 /**
  * The clipboard API, then the old selection trick.

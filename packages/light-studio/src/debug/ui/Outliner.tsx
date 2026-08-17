@@ -1,11 +1,12 @@
-import { useState, type CSSProperties, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 
-import { LIGHT_DEFINITIONS, type LightType } from '../../core/schema'
+import { LIGHT_DEFINITIONS, LIGHT_TYPES, type LightType } from '../../core/schema'
 import type { StudioState } from '../../core/store'
 import { useStudio, useStudioStore } from '../context'
-import { CloseIcon, EyeIcon, SoloIcon } from './icons'
+import { CloseIcon, DuplicateIcon, EyeIcon, PlusIcon, SoloIcon, TrashIcon } from './icons'
 import { usePaint, type Paint, type PaintColumn } from './paint'
 import { Panel } from './Panel'
+import { MOD } from './platform'
 
 /**
  * The rig, as a list.
@@ -48,6 +49,8 @@ export function Outliner() {
             </button>
           ) : null}
 
+          <AddMenu />
+
           {/* On the top panel's header, so it reads as the corner of the whole
               column rather than of the light list. Naming the key matters: the
               editor keeps everything while hidden, and someone who closed it
@@ -65,7 +68,7 @@ export function Outliner() {
       }
     >
       {ids.length === 0 ? (
-        <p className="ls-empty">No lights in this setup.</p>
+        <p className="ls-empty">No lights yet — add one with +.</p>
       ) : (
         <div className="ls-list">
           {ids.map((id, index) => (
@@ -84,6 +87,90 @@ export function Outliner() {
         </div>
       )}
     </Panel>
+  )
+}
+
+/**
+ * The + in the header, and the list of types it opens.
+ *
+ * A menu rather than six buttons on the panel: adding a light is rare next to
+ * tuning one, and a permanent strip of types would spend the column's width on
+ * the thing you do least. What is added lands on its type's default position —
+ * `[5, 5, 5]` for a directional, not the origin — selected, with the gizmo on
+ * it, so the next thing you do can be dragging it.
+ *
+ * Positioned `fixed` off the button's own rect: the panel clips its overflow to
+ * keep the list's corners round, and a menu longer than a short panel would be
+ * cut off by it.
+ */
+function AddMenu() {
+  const store = useStudioStore()
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null)
+  const root = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!at) return
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Node) || !root.current?.contains(event.target)) setAt(null)
+    }
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') setAt(null)
+    }
+    // The anchor is measured once, and the panel is pinned to a corner of a
+    // window that just changed size. Close rather than chase it.
+    const onResize = () => setAt(null)
+
+    // Capture, so a press on something that stops propagation still shuts this.
+    window.addEventListener('pointerdown', onPointerDown, true)
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true)
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [at])
+
+  const toggle = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (at) return setAt(null)
+    const rect = event.currentTarget.getBoundingClientRect()
+    setAt({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+  }
+
+  return (
+    <div className="ls-add-wrap" ref={root}>
+      <button
+        type="button"
+        className="ls-add"
+        onClick={toggle}
+        title="Add a light"
+        aria-label="Add a light"
+        aria-expanded={at !== null}
+        aria-haspopup="menu"
+      >
+        <PlusIcon />
+      </button>
+
+      {at ? (
+        <div className="ls-menu" role="menu" style={{ top: at.top, right: at.right }}>
+          {LIGHT_TYPES.map((type) => (
+            <button
+              key={type}
+              type="button"
+              role="menuitem"
+              className="ls-menu-item"
+              onClick={() => {
+                store.getState().addLight(type)
+                setAt(null)
+              }}
+            >
+              {LIGHT_DEFINITIONS[type].label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -146,7 +233,30 @@ function LightRow({
         </span>
       )}
 
+      {/* The type label and the two actions share one slot: 280px does not
+          have room for both, and the label is the more expendable of them —
+          the swatch, the name and the panel below all say what this is. Swapped
+          in CSS on hover and on the selected row, so the actions are on the
+          row they act on and you never aim at a button that just appeared
+          somewhere else. */}
       <span className="ls-type">{LIGHT_DEFINITIONS[type].label}</span>
+
+      <div className="ls-row-actions">
+        <RowAction
+          className="ls-duplicate"
+          title={`Duplicate this light (${MOD}+D)`}
+          onPress={() => store.getState().duplicateLight(id)}
+        >
+          <DuplicateIcon />
+        </RowAction>
+        <RowAction
+          className="ls-delete"
+          title="Remove this light (Delete). Undoable."
+          onPress={() => store.getState().removeLight(id)}
+        >
+          <TrashIcon />
+        </RowAction>
+      </div>
 
       <Toggle
         column="enabled"
@@ -173,6 +283,39 @@ function LightRow({
         <SoloIcon on={soloed} />
       </Toggle>
     </div>
+  )
+}
+
+/**
+ * A row's duplicate or delete button.
+ *
+ * Acts on its own row's id, so it stops the press reaching the row: pressing
+ * delete should not first select the light it is about to remove, and there is
+ * no reason for duplicate to move your selection either — `duplicateLight`
+ * selects the copy anyway.
+ */
+function RowAction({
+  className,
+  title,
+  onPress,
+  children,
+}: {
+  className: string
+  title: string
+  onPress: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      className={`ls-toggle ${className}`}
+      title={title}
+      aria-label={title}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={onPress}
+    >
+      {children}
+    </button>
   )
 }
 

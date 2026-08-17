@@ -13,3 +13,14 @@ export function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   return TYPED_INTO.has(target.tagName) || target.isContentEditable
 }
+
+/**
+ * Physical position or produced character, either one.
+ *
+ * `code` alone misses Dvorak, where the OS routes Cmd+Z by character and the
+ * physical key is somewhere else entirely; `key` alone misses the layouts that
+ * report a modified keypress as something other than the plain letter.
+ */
+export function pressed(event: KeyboardEvent, code: string, key: string): boolean {
+  return event.code === code || event.key.toLowerCase() === key
+}

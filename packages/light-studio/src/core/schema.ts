@@ -158,6 +158,13 @@ export const LIGHT_DEFINITIONS = {
 
 export type LightType = keyof typeof LIGHT_DEFINITIONS
 
+/**
+ * Every type, in the order they are defined above, which is also the order the
+ * add menu offers them. Derived rather than written out, so a seventh light
+ * type appears in the menu by being defined.
+ */
+export const LIGHT_TYPES = Object.keys(LIGHT_DEFINITIONS) as LightType[]
+
 /** The fields a light can expose as a point you drag. Not every type has both. */
 export type VectorField = 'position' | 'target'
 

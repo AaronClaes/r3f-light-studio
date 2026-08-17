@@ -209,7 +209,10 @@ export function createLightStudioStore(initial: LightSetup) {
         commit((draft) => {
           const copy = structuredClone(source)
           copy.id = newId
-          copy.name = `${source.name} copy`
+          // An unnamed light shows its id in the outliner, so naming its copy
+          // ` copy` would give it a leading space instead of falling back to
+          // the id the way every other unnamed light does.
+          copy.name = source.name ? `${source.name} copy` : ''
           draft.lights.push(copy)
         })
         set({ selectedId: newId, selectedField: 'position' })

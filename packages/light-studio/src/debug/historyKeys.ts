@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-import { isTyping } from '../runtime/keyboard'
+import { isTyping, pressed } from '../runtime/keyboard'
 import { useStudioStore } from './context'
 
 /**
@@ -53,15 +53,4 @@ function actionFor(event: KeyboardEvent): 'undo' | 'redo' | null {
     return 'redo'
   }
   return null
-}
-
-/**
- * Physical position or produced character, either one.
- *
- * `code` alone misses Dvorak, where the OS routes Cmd+Z by character and the
- * physical key is somewhere else entirely; `key` alone misses the layouts that
- * report a modified keypress as something other than the plain letter.
- */
-function pressed(event: KeyboardEvent, code: string, key: string): boolean {
-  return event.code === code || event.key.toLowerCase() === key
 }

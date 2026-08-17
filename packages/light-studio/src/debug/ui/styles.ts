@@ -168,6 +168,28 @@ const CSS = `
 }
 .ls-row[data-selected='true'] .ls-type { color: #ffffff99; }
 
+/*
+ * Duplicate and delete take the type label's place rather than sitting beside
+ * it — six controls do not fit in 280px, and the label is the one thing here
+ * the swatch, the name and the properties panel all repeat.
+ *
+ * On the selected row as well as on hover, because the selected light is the
+ * one the keyboard acts on and it is worth saying so. :focus-within is what
+ * keeps them reachable by tab, which :hover alone would not.
+ */
+.ls-row-actions {
+  display: none;
+  gap: 2px;
+  flex: none;
+}
+.ls-row:hover .ls-row-actions,
+.ls-row:focus-within .ls-row-actions,
+.ls-row[data-selected='true'] .ls-row-actions { display: flex; }
+
+.ls-row:hover .ls-type,
+.ls-row:focus-within .ls-type,
+.ls-row[data-selected='true'] .ls-type { display: none; }
+
 .ls-toggle {
   display: grid;
   place-items: center;
@@ -187,6 +209,11 @@ const CSS = `
 .ls-toggle[data-on='true'] { color: var(--ls-text); }
 .ls-toggle[data-on='false'] { color: var(--ls-text-faint); }
 .ls-toggle.ls-solo[data-on='true'] { color: var(--ls-solo); }
+
+/* The one control in the studio that removes something, and the only one that
+   goes red for it. Everything else in a row is a toggle. After the .ls-toggle
+   rules above, which it shares a class and a specificity with. */
+.ls-delete:hover { background: #8a3b3b; color: var(--ls-text); }
 
 /*
  * How many lights the solo is showing. Just the count — the colour already
@@ -227,6 +254,54 @@ const CSS = `
 }
 .ls-close:hover { background: #ffffff1a; color: var(--ls-text); }
 .ls-close:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: -1px; }
+
+/* Shaped like the × beside it. Only the wrapper is here to anchor the menu. */
+.ls-add-wrap { display: flex; flex: none; }
+.ls-add {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ls-text-dim);
+  cursor: pointer;
+}
+.ls-add:hover { background: #ffffff1a; color: var(--ls-text); }
+.ls-add:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: -1px; }
+.ls-add[aria-expanded='true'] { background: #ffffff1a; color: var(--ls-text); }
+
+/* Fixed, and placed from the button's own rect: the panel clips its overflow
+   for the sake of its rounded corners, and this is taller than a short panel. */
+.ls-menu {
+  position: fixed;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+  padding: 3px;
+  border-radius: var(--ls-radius);
+  background: var(--ls-bg);
+  box-shadow: 0 0 9px 0 #00000088;
+}
+
+.ls-menu-item {
+  height: 22px;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ls-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ls-menu-item:hover { background: var(--ls-accent); }
+.ls-menu-item:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: -1px; }
 
 .ls-empty {
   padding: 14px 8px;

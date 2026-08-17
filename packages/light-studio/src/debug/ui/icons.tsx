@@ -43,6 +43,39 @@ export function CloseIcon() {
   )
 }
 
+/** Adds a light. Opens the type menu rather than adding one straight away. */
+export function PlusIcon() {
+  return (
+    <svg {...SVG} aria-hidden>
+      <path d="M8 3.5v9M3.5 8h9" />
+    </svg>
+  )
+}
+
+/** Two sheets, the usual copy glyph, for duplicating a light. */
+export function DuplicateIcon() {
+  return (
+    <svg {...SVG} aria-hidden>
+      <rect x="6" y="6" width="7.5" height="7.5" rx="1.25" />
+      <path d="M10 6V3.75A1.25 1.25 0 0 0 8.75 2.5h-5A1.25 1.25 0 0 0 2.5 3.75v5A1.25 1.25 0 0 0 3.75 10H6" />
+    </svg>
+  )
+}
+
+/**
+ * A bin and not an X: the X in the header puts the studio away, and the two
+ * sit a few pixels apart. One is reversible by pressing a key; the other
+ * removes a light from the rig.
+ */
+export function TrashIcon() {
+  return (
+    <svg {...SVG} aria-hidden>
+      <path d="M3 4.5h10M6.5 4.5V3a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1.5" />
+      <path d="M4.5 4.5 5.1 13a.5.5 0 0 0 .5.5h4.8a.5.5 0 0 0 .5-.5l.6-8.5" />
+    </svg>
+  )
+}
+
 /** Solo is a filled dot rather than an eye: it is a different kind of state. */
 export function SoloIcon({ on }: { on: boolean }) {
   return (
