@@ -115,6 +115,13 @@ const CSS = `
    its own, so the strip's spacing does not change as one appears. */
 .ls-ws-cell { position: relative; display: flex; }
 
+/* Lifted while you are reaching for it. The cells are positioned siblings with
+   no z-index of their own, so they paint in document order and the next chip
+   covered the × overhanging it — the delete button for 1 sat behind 2. Only
+   while hovered or focused, which is the only time the × is on screen. */
+.ls-ws-cell:hover,
+.ls-ws-cell:focus-within { z-index: 1; }
+
 .ls-ws-clear {
   position: absolute;
   top: -5px;
@@ -485,8 +492,15 @@ const CSS = `
 .ls-save[data-status='failed'] { background: #8a3b3b; }
 
 /* Leva fills the slot. Kept mounted while nothing is selected: unmounting it
-   hands the panel back to leva's own floating root. */
-.ls-slot { overflow-y: auto; }
+   hands the panel back to leva's own floating root.
+
+   Isolated because leva layers its own insides — a row is z-index 100, and a
+   popin goes to 10000 at runtime — and with nothing to stop them those numbers
+   competed against ours in the same stacking context, so a leva input painted
+   over the light picker. Isolating makes leva's layering leva's business and
+   stops it at this box, rather than us bidding higher and losing again the next
+   time leva picks a number. */
+.ls-slot { overflow-y: auto; isolation: isolate; }
 .ls-slot[hidden] { display: none; }
 
 /*
