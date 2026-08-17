@@ -123,6 +123,18 @@ export interface StudioState {
    */
   forceBackground: boolean
   /**
+   * Paints the scene in one neutral grey so you can see the light on its own.
+   *
+   * Colour is the loudest thing in a frame, and while you are judging where the
+   * light falls it is mostly in the way — a red wall reads as a bright wall.
+   * Taking it away leaves shape and shading, which is what a rig is actually
+   * made of.
+   *
+   * A way of looking, like solo and the backdrop. Never serialised, and it
+   * cannot be: the rig owns the lights and nothing else in the scene.
+   */
+  grey: boolean
+  /**
    * Whether the editor is on screen.
    *
    * Not a property of the rig, but it lives here anyway: the editor's DOM is
@@ -181,6 +193,7 @@ export interface StudioState {
   setSolo: (id: string, on: boolean) => void
   clearSolo: () => void
   setForceBackground: (next: boolean) => void
+  setGrey: (next: boolean) => void
 
   setVisible: (next: boolean) => void
   toggleVisible: () => void
@@ -277,6 +290,7 @@ export function createLightStudioStore(initial: LightSetup) {
       ...NO_SELECTION,
       soloIds: [],
       forceBackground: false,
+      grey: false,
       // Armed is not the same as shown: the editor exists from the moment
       // `debug` is on, and the toggle key is what puts it on screen.
       visible: false,
@@ -305,6 +319,8 @@ export function createLightStudioStore(initial: LightSetup) {
       clearSolo: () => set({ soloIds: [] }),
 
       setForceBackground: (next) => set({ forceBackground: next }),
+
+      setGrey: (next) => set({ grey: next }),
 
       setVisible: (next) => set({ visible: next }),
       toggleVisible: () => set((state) => ({ visible: !state.visible })),

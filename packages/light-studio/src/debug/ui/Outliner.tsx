@@ -8,6 +8,7 @@ import {
   CloseIcon,
   DuplicateIcon,
   EyeIcon,
+  GreyIcon,
   PlusIcon,
   SoloIcon,
   TrashIcon,
@@ -57,6 +58,8 @@ export function Outliner() {
             </button>
           ) : null}
 
+          <GreyToggle />
+
           <AddMenu />
 
           {/* On the top panel's header, so it reads as the corner of the whole
@@ -65,7 +68,7 @@ export function Outliner() {
               from here has nothing else to tell them how to get it back. */}
           <button
             type="button"
-            className="ls-close"
+            className="ls-icon ls-close"
             onClick={() => store.getState().setVisible(false)}
             title={toggleHint ? `Hide the studio (${toggleHint})` : 'Hide the studio'}
             aria-label="Hide the studio"
@@ -176,6 +179,36 @@ function EnvironmentRow({
         <SoloIcon on={soloed} />
       </RowAction>
     </div>
+  )
+}
+
+/**
+ * Strips the scene back to one neutral grey.
+ *
+ * In the panel header rather than on the environment row, because it is the one
+ * control here that is about everything *except* the rig — the meshes an app
+ * brought, which the studio otherwise has no opinion about. The environment row
+ * would read as another thing you can do to the environment.
+ *
+ * Shaped like the close button beside it and not like a row toggle: the eyes and
+ * dots down the list each belong to one light, and this belongs to the scene.
+ */
+function GreyToggle() {
+  const store = useStudioStore()
+  const grey = useStudio((state) => state.grey)
+
+  return (
+    <button
+      type="button"
+      className="ls-icon"
+      data-on={grey}
+      onClick={() => store.getState().setGrey(!grey)}
+      title="Paint the scene one neutral grey, so you are looking at the light and not at the colours it lands on. Never saved to the file."
+      aria-label="Paint the scene one neutral grey"
+      aria-pressed={grey}
+    >
+      <GreyIcon />
+    </button>
   )
 }
 

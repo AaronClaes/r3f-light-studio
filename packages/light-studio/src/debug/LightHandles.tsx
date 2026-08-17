@@ -133,8 +133,12 @@ function Handle({ id, field, point, color }: HandleProps) {
       >
         <sphereGeometry args={[1, 12, 8]} />
         {/* Not `visible={false}`, which would take it out of the raycast.
-            Writing neither colour nor depth renders nothing but stays pickable. */}
-        <meshBasicMaterial colorWrite={false} depthWrite={false} />
+            Writing neither colour nor depth renders nothing but stays pickable.
+
+            `allowOverride` is what keeps it that way: grey mode replaces every
+            material that will let it, and an invisible sphere replaced by an
+            opaque one is a grey ball parked in front of every light. */}
+        <meshBasicMaterial allowOverride={false} colorWrite={false} depthWrite={false} />
       </mesh>
     </group>
   )
@@ -165,6 +169,7 @@ function Mark({
   return (
     <lineSegments geometry={geometry} renderOrder={1}>
       <lineBasicMaterial
+        allowOverride={false}
         color={color}
         depthTest={false}
         opacity={opacity}

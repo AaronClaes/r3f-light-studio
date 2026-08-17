@@ -1,7 +1,9 @@
 import { Environment, Lightformer } from '@react-three/drei'
-import { Children, useEffect, type ReactNode } from 'react'
+import { Children, useEffect, useRef, type ReactNode } from 'react'
+import type { Group } from 'three'
 
 import type { EnvironmentConfig, EnvironmentPreset, LightformerConfig } from '../core/schema'
+import { useKeepMaterial } from './keepMaterial'
 
 /**
  * The image-based half of a rig: an HDRI, shapes drawn into it, or both.
@@ -72,6 +74,13 @@ export function EnvironmentRig({
   // it gets the same warning — from here, where the prop is.
   useGroundConflictWarning(projected && hasContent)
 
+  // The projected ground is the only thing drei puts in the real scene, and it
+  // is the environment wrapped around the horizon rather than anything the rig
+  // lights — so the editor's grey mode leaves it be. Keyed on the image, which
+  // is what the mesh is rebuilt from.
+  const ground = useRef<Group>(null)
+  useKeepMaterial(ground, projected && JSON.stringify(source))
+
   const shapes =
     projected || (lightformers.length === 0 && !hasContent) ? undefined : (
       <>
@@ -88,17 +97,19 @@ export function EnvironmentRig({
 
   if (projected) {
     return (
-      <Environment
-        {...source}
-        {...backdrop}
-        environmentIntensity={config.intensity}
-        environmentRotation={config.rotation}
-        ground={{
-          radius: config.ground.radius,
-          height: config.ground.height,
-          scale: config.ground.scale,
-        }}
-      />
+      <group ref={ground}>
+        <Environment
+          {...source}
+          {...backdrop}
+          environmentIntensity={config.intensity}
+          environmentRotation={config.rotation}
+          ground={{
+            radius: config.ground.radius,
+            height: config.ground.height,
+            scale: config.ground.scale,
+          }}
+        />
+      </group>
     )
   }
 

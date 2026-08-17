@@ -51,6 +51,7 @@ your work out.
 - [x] Add, duplicate and delete lights — the rig's shape, not just its values
 - [x] Environment — an HDRI, lightformers drawn into it, or both
 - [x] Workspaces — fork the rig, work in versions side by side, `file` stays put
+- [x] Grey mode — take the colour out of the scene and look at the light
 - [ ] Fit shadow camera to the scene bounds
 
 ## Layout
@@ -700,6 +701,65 @@ path, so both are one undo step, and `Cmd+Z` is a better answer to one mistaken
 delete than a dialog is to every deliberate one. Deleting clears the selection
 rather than moving it to a neighbour, which is also what stops a held `Delete`
 from walking through the rig.
+
+### Grey mode
+
+The sphere in the panel header paints every mesh in the scene one neutral grey.
+Colour is the loudest thing in a frame, and while you are placing light it is
+mostly in the way — a red wall reads as a bright wall. Take it away and what is
+left is shape and shading, which is what a rig is made of.
+
+18% grey, metalness 0, roughness 0.5. The grey is the card every other trade
+meters against. Half rough because the two extremes each hide half the answer:
+mirror-smooth is all reflection and no form, fully matte kills the speculars,
+and where a source lands on a surface is the thing you are looking for. It is
+`DoubleSide` so a plane with its back turned does not vanish — a diagnostic view
+that deletes geometry is worse than one that shows a face the app would have
+culled.
+
+A way of looking, like solo and the backdrop: never serialised, and it could not
+be. The rig owns the lights and nothing else in the scene.
+
+#### What it does not paint
+
+It is `scene.overrideMaterial`, so it is one property with nothing to remember
+and nothing to put back, and a mesh the app mounts while grey is on is covered
+without anyone having to notice it arrived. Three gates the override on
+`material.allowOverride`, which is how it keeps its own background mesh out of
+one, and that is the whole exclusion mechanism here.
+
+- **The environment.** Free, and not a decision: drei portals lightformers and
+  anything in `<LightStudio.Environment>` into a scene of its own, so they never
+  see the main scene's override. Right, too — they are emitters, not surfaces you
+  are judging.
+- **The wireframes, the handles and the gizmo.** These say `allowOverride={false}`
+  where they are written. The one that makes it necessary rather than tidy is the
+  invisible sphere behind every handle, which is pickable precisely because it
+  writes neither colour nor depth: replace it with an opaque grey and you get a
+  ball parked in front of every light in the rig. The gizmo's materials come from
+  `three-stdlib`, so those are marked by walking it.
+- **The projected ground.** It is the environment wrapped around the horizon
+  rather than anything the rig lights, so it is marked in `EnvironmentRig`.
+
+#### Your own materials can opt out
+
+`allowOverride` is three's, not ours, so anything in your scene can say the same:
+
+```tsx
+<meshBasicMaterial allowOverride={false} />
+```
+
+Worth knowing about, because the case that needs it is a common one. drei's
+`<ContactShadows>` is a plane showing a shadow texture — app content by
+ownership, an instrument by nature — and grey mode will paint over it with
+everything else. In the playground that was 10.7% of the frame: a solid grey
+rectangle where the soft shadow had been. It is marked there, and that is what
+the escape hatch is for. The same goes for a video screen, a billboard, or
+anything else whose material is showing you something rather than catching light.
+
+Transparency is flattened either way, and that is inherent: glass becomes a grey
+blob and render order will not match. Standard for a clay render, and worth
+knowing before you see it.
 
 ### The properties panel
 

@@ -337,15 +337,16 @@ const CSS = `
 }
 .ls-solo-badge:hover { background: #ffbb4d; }
 
-/* Shaped like a row toggle so the header's two controls match, but it is the
-   last thing on the right of the whole column rather than part of the list. */
-.ls-close {
+/* The header's icon buttons — grey mode and close. Shaped like a row toggle so
+   the whole column's controls match, but they belong to the panel rather than to
+   any one light in the list. */
+.ls-icon {
   display: grid;
   place-items: center;
   flex: none;
   width: 18px;
   height: 18px;
-  margin: 0 -4px 0 0;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 3px;
@@ -353,8 +354,16 @@ const CSS = `
   color: var(--ls-text-faint);
   cursor: pointer;
 }
-.ls-close:hover { background: #ffffff1a; color: var(--ls-text); }
-.ls-close:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: -1px; }
+.ls-icon:hover { background: #ffffff1a; color: var(--ls-text); }
+.ls-icon:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: -1px; }
+
+/* Lit like a row toggle: grey mode is a state you can leave on, and the header
+   is the only thing that would tell you it is. */
+.ls-icon[data-on='true'] { color: var(--ls-text); }
+
+/* The last thing on the right of the whole column, so it sits out at the
+   panel's edge rather than in from it. */
+.ls-close { margin-right: -4px; }
 
 /* Shaped like the × beside it. Only the wrapper is here to anchor the menu. */
 .ls-add-wrap { display: flex; flex: none; }

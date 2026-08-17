@@ -4,6 +4,7 @@ import * as THREE from 'three'
 
 import type { LightPatch, LightSetup, Vec3, VectorField } from '../core/schema'
 import type { StudioState } from '../core/store'
+import { useKeepMaterial } from '../runtime/keepMaterial'
 import { useStudio, useStudioStore } from './context'
 
 /**
@@ -23,6 +24,11 @@ export function LightGizmo() {
   const dragging = useRef(false)
 
   const { id, field } = selection ?? {}
+
+  // The gizmo's own materials come from three-stdlib, so they are marked from
+  // out here. Keyed on the selection because the whole thing mounts with it.
+  const arrows = useRef<THREE.Group>(null)
+  useKeepMaterial(arrows, id)
 
   useEffect(() => {
     if (id === undefined || field === undefined) return
@@ -51,24 +57,28 @@ export function LightGizmo() {
   return (
     <>
       <primitive object={proxy} />
-      <TransformControls
-        mode="translate"
-        object={proxy}
-        onMouseDown={() => {
-          // One undo step per drag, not one per frame.
-          dragging.current = true
-          store.getState().beginTransaction()
-        }}
-        onMouseUp={() => {
-          dragging.current = false
-          // A drag moves the pointer far enough that r3f never calls it a
-          // click, so there is nothing to claim. A tap does produce one.
-          const moved = store.getState().endTransaction()
-          if (!moved) store.getState().claimClick()
-        }}
-        onObjectChange={writePoint}
-        space="world"
-      />
+      {/* A group only so there is something to walk: drei mounts the controls
+          as a primitive, and the gizmo hangs off it as an ordinary child. */}
+      <group ref={arrows}>
+        <TransformControls
+          mode="translate"
+          object={proxy}
+          onMouseDown={() => {
+            // One undo step per drag, not one per frame.
+            dragging.current = true
+            store.getState().beginTransaction()
+          }}
+          onMouseUp={() => {
+            dragging.current = false
+            // A drag moves the pointer far enough that r3f never calls it a
+            // click, so there is nothing to claim. A tap does produce one.
+            const moved = store.getState().endTransaction()
+            if (!moved) store.getState().claimClick()
+          }}
+          onObjectChange={writePoint}
+          space="world"
+        />
+      </group>
     </>
   )
 }

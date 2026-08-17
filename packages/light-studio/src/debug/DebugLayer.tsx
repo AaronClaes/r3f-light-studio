@@ -11,6 +11,7 @@ import { LightRenderer } from '../runtime/LightRenderer'
 import { describeToggleKey, useToggleKey, type ToggleKey } from '../runtime/toggleKey'
 import { LightStudioStoreProvider, useStudio } from './context'
 import { setupToJson } from './exportSetup'
+import { GreyMode } from './GreyMode'
 import { LightHelpers } from './helpers/LightHelpers'
 import { useHistoryKeys } from './historyKeys'
 import { LightGizmo } from './LightGizmo'
@@ -203,6 +204,7 @@ function StudioScene({ environmentContent }: { environmentContent: ReactNode }) 
           geometry, and the store they read from lives above this. */}
       {visible ? (
         <>
+          <GreyMode />
           <LightHelpers />
           <LightHandles />
           <LightGizmo />

@@ -293,7 +293,10 @@ function Wire({
 
   return (
     <lineSegments geometry={geometry}>
+      {/* Grey mode paints the scene to show you the light on it. A wireframe is
+          not lit by anything and is the instrument you are reading it with. */}
       <lineBasicMaterial
+        allowOverride={false}
         color={color}
         opacity={opacity}
         toneMapped={false}

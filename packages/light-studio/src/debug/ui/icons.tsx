@@ -92,6 +92,19 @@ export function BackdropIcon() {
   )
 }
 
+/**
+ * A sphere with a terminator across it — the grey ball every lighter keeps on
+ * set, and the one shape that shows a whole falloff at once.
+ */
+export function GreyIcon() {
+  return (
+    <svg {...SVG} aria-hidden>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M10.9 12.7A5.5 5.5 0 0 0 10.9 3.3a7 7 0 0 1 0 9.4Z" fill="currentColor" />
+    </svg>
+  )
+}
+
 /** Solo is a filled dot rather than an eye: it is a different kind of state. */
 export function SoloIcon({ on }: { on: boolean }) {
   return (
