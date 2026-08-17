@@ -9,30 +9,19 @@ import setup from './lights.json'
 export function App() {
   return (
     <>
-      {/* Tone mapping and exposure are the canvas's, not the rig's. r3f
-          already defaults to ACESFilmic; only the exposure is ours. */}
       <Canvas shadows camera={{ position: [6, 4, 8], fov: 40 }} gl={{ toneMappingExposure: 1.1 }}>
-        {/* makeDefault is what lets the studio's gizmos suspend orbiting while
-            you drag a light. Without it the camera fights the gizmo. */}
+        {/* makeDefault is what lets the gizmos suspend orbiting mid-drag. */}
         <OrbitControls makeDefault target={[0, 0.8, 0]} />
 
-        {/* Armed for the whole session; the toggle key is what shows it. */}
         <LightStudio setup={setup} debug>
-          {/* Where meshes go that the rig cannot describe — occluders in front
-              of a lightformer, or a room to bounce off. A mesh is geometry and
-              a material, and a material is not JSON, so it lives here and the
-              editor leaves it alone. Empty for now.
-
-              Worth knowing before you put something in: the environment is
-              rendered from a single point at the origin, so a mesh only blocks
-              what it covers *from there*, not from your camera. */}
+          {/* For meshes the rig cannot describe, such as occluders in front of
+              a lightformer. Empty for now. */}
           <LightStudio.Environment />
         </LightStudio>
 
         <Subjects />
       </Canvas>
 
-      {/* The editor starts hidden and nothing on screen says it is there. */}
       <p style={panelStyle}>
         Press <kbd style={kbdStyle}>F2</kbd> for the light studio
       </p>
@@ -40,15 +29,10 @@ export function App() {
   )
 }
 
-/** Shapes chosen to read lighting: a curve, a hard edge, and a floor to catch shadows. */
+/** A curve, a hard edge, and a floor to catch shadows. */
 function Subjects() {
-  /**
-   * Contact shadows are a plane showing a shadow texture, so the studio's grey
-   * mode — which replaces every material that lets it — would paint over them
-   * with the rest of the scene. They are a lighting cue rather than a surface
-   * being lit, which is exactly what `allowOverride` is for. Any app material
-   * can say the same.
-   */
+  // A shadow texture is a lighting cue rather than a surface being lit, so grey
+  // mode leaves it alone. Any app material can opt out the same way.
   const shadows = useRef<Group>(null)
   useEffect(() => {
     shadows.current?.traverse((object) => {

@@ -12,36 +12,22 @@ import {
   type Control,
   type Field,
   type FieldValue,
-} from './fields'
+} from './controls'
 
-/**
- * What the panel shows for the environment.
- *
- * The same arrangement as `fieldsFor`, for the one part of a rig that is not a
- * light: derived from `ENVIRONMENT_DEFAULTS` so a field appears here because
- * the schema has it, with the presentation — steps, menus, which group things
- * sit in — decided here rather than in `core`.
- *
- * Two groups nest, and both follow the shadow folder's shape: the switch above
- * the folder, the tuning inside it. The outliner's backdrop button is not this
- * `background.enabled` — it is a temporary override that leaves the file alone.
- * See `forceBackground` in the store.
- */
+/** `fieldsFor`, for the one part of a rig that is not a light. */
 
 export type EnvironmentField = Field<EnvironmentConfig, Partial<EnvironmentConfig>>
 
-/** Its own table, not the lights' — `height` here is a horizon, not a softbox. */
+/** Its own table, not the lights': `height` here is a horizon, not a softbox. */
 const FIELD_UI: Record<string, Control> = {
   intensity: { min: 0, step: 0.05 },
-  // The side of a cube render target: a shadow map's problem again, and the
-  // same answer. Higher is a sharper reflection and a slower editor.
+  // Higher is a sharper reflection and a slower editor.
   resolution: { options: [64, 128, 256, 512, 1024] },
-  // three's own range. Above 0 it renders the background through PMREM.
   blur: { min: 0, max: 1, step: 0.01 },
   radius: { min: 1, step: 5 },
   height: { min: 0, step: 1 },
   scale: { min: 1, step: 50 },
-  /** Radians, and a full turn is 6.28 of them — a tenth of a degree is noise. */
+  /** A full turn is 6.28 radians, so a tenth of a degree is noise. */
   rotation: { step: 0.01 },
 }
 
@@ -61,10 +47,8 @@ const GROUP = {
 }
 
 /**
- * Leva maps a `set` by leaf key alone, and the environment shares `intensity`,
- * `rotation`, `radius` and `height` with a light type or with itself one level
- * up. Prefixed so they stay separate controls; the label puts the plain name
- * back on screen.
+ * The environment shares `intensity`, `rotation`, `radius` and `height` with a
+ * light type or with itself one level up, and leva maps a `set` by leaf key.
  */
 const PREFIX = 'env-'
 
@@ -74,7 +58,7 @@ export function environmentFields(): EnvironmentField[] {
   const ground: EnvironmentField[] = []
 
   for (const [key, fallback] of entriesOf(ENVIRONMENT_DEFAULTS)) {
-    // The outliner's, like a light's own. It is the row's eye.
+    // The row's eye, in the outliner.
     if (key === 'enabled') continue
 
     if (key === 'background') {
@@ -115,13 +99,7 @@ export function environmentFields(): EnvironmentField[] {
   return [...source, ...background, ...ground]
 }
 
-/**
- * One nested block of the environment — the backdrop, or the dome.
- *
- * `enabled` sits above the folder for the same reason a light's shadow toggle
- * does: it is the one thing in the block worth reading at a glance, and a
- * collapsed folder hides it.
- */
+/** `enabled` sits above the folder, as a light's shadow toggle does. */
 function groupFields(
   group: 'background' | 'ground',
   fallback: EnvironmentBackground | EnvironmentGround,

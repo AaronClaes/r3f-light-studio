@@ -4,11 +4,8 @@ import path from 'node:path'
 
 import type { Plugin } from 'vite'
 
-// The one import in the package that names its extension. Every other file
-// here is resolved by Vite; this one is loaded by Node, while it reads
-// vite.config, and Node will not guess at a missing `.ts`. Worth the oddity to
-// keep one definition of the route and the default id — the alternative is two
-// copies that drift and take the Save button down with them.
+// The one import here that names its extension: Node loads this file while it
+// reads vite.config, and will not guess at a missing `.ts`.
 import { DEFAULT_SAVE_ID, SAVE_ROUTE } from '../core/save.ts'
 
 /**
@@ -26,17 +23,13 @@ import { DEFAULT_SAVE_ID, SAVE_ROUTE } from '../core/save.ts'
  * // <LightStudio id="hero" setup={hero} debug />
  * ```
  *
- * **The browser never sends a path.** It sends one of the ids declared here
- * and the server looks the path up, so there is nothing a page can say to this
- * that makes it write somewhere it was not told about. That matters more than
- * it looks: a dev server is often listening on the network, not just on
- * localhost.
- *
- * Dev only — `apply: 'serve'` keeps the whole thing out of a build.
+ * The browser never sends a path, only an id declared here, so there is nothing
+ * a page can say that makes this write somewhere it was not told about. A dev
+ * server is often listening on the network, not just on localhost.
  */
 export function lightStudio(targets: string | Record<string, string>): Plugin {
-  // A bare path is one target under the id a component gets when it names
-  // none, so the common case needs nothing on the component at all.
+  // A bare path is one target under the default id, so the common case needs
+  // nothing on the component at all.
   const files: Record<string, string> =
     typeof targets === 'string' ? { [DEFAULT_SAVE_ID]: targets } : { ...targets }
 
@@ -52,8 +45,7 @@ export function lightStudio(targets: string | Record<string, string>): Plugin {
 
     configureServer(server) {
       server.middlewares.use(`${SAVE_ROUTE}/targets`, (_request, response) => {
-        // Relative, because this is only ever shown to the person who wrote
-        // the config and an absolute path tells them nothing they don't know.
+        // Relative: this is only ever shown to whoever wrote the config.
         const paths = Object.fromEntries(
           Object.entries(files).map(([id, file]) => [
             id,
@@ -92,9 +84,8 @@ export function lightStudio(targets: string | Record<string, string>): Plugin {
           return send(response, 500, { error: reason })
         }
 
-        // The write is what tells the browser too: Vite notices the JSON
-        // change and pushes it back through the import, so the page and the
-        // file agree without a reload.
+        // The write is what tells the browser too: Vite pushes the JSON back
+        // through the import, so the page agrees without a reload.
         server.config.logger.info(`[light-studio] wrote ${path.relative(root, target)}`)
         send(response, 200, { path: path.relative(root, target) })
       })
@@ -103,10 +94,8 @@ export function lightStudio(targets: string | Record<string, string>): Plugin {
 }
 
 /**
- * Resolved against the Vite root, and deliberately not confined to it — in a
- * monorepo the rig can legitimately live in a sibling package. The path comes
- * from the developer's own config rather than from the page, so there is
- * nothing here for a browser to abuse.
+ * Not confined to the Vite root: in a monorepo the rig can live in a sibling
+ * package, and the path comes from the config rather than from the page.
  */
 function targetPath(root: string, file: string): string {
   return path.resolve(root, file)

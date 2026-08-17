@@ -5,16 +5,8 @@ import type { LightConfig } from '../core/schema'
 import { useStudio } from './context'
 
 /**
- * Which lights the editor draws anything for — wireframes and handles alike.
- *
- * A light that is switched off, or muted by someone else's solo, is not drawn
- * at all. It used to be drawn faintly so it stayed findable, but the outliner
- * is what makes a light findable now, and a rig of dim shapes for things that
- * are not lighting anything is just noise.
- *
- * The selected light is always drawn, however it is set. Selecting a light
- * that is off has to show you where it is — otherwise the gizmo would attach
- * to a point with nothing to grab.
+ * Which lights the editor draws wireframes and handles for. The selected light
+ * is always drawn, or the gizmo would attach to a point with nothing to grab.
  */
 export function useDrawnLights(): LightConfig[] {
   const lights = useStudio((state) => state.setup.lights)

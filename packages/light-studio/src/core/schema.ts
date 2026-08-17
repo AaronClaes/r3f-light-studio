@@ -1,22 +1,14 @@
-/**
- * The on-disk format.
- *
- * Each light type is described exactly once, in `LIGHT_DEFINITIONS`. Its
- * TypeScript type, the parser's coercion, the serialiser's default-stripping
- * and (later) the editor's field list all derive from that one object, so
- * adding a light type means editing a single place.
- */
+/** The on-disk format. Every light type is described once, in `LIGHT_DEFINITIONS`. */
 
 export const SCHEMA_VERSION = 1
 
 export type Vec3 = [x: number, y: number, z: number]
 
-/** Orthographic shadow-camera bounds. */
 export type ShadowFrustum = [left: number, right: number, top: number, bottom: number]
 
 export interface ShadowConfig {
   enabled: boolean
-  /** Square shadow map resolution, in pixels. */
+  /** Square, in pixels. */
   mapSize: number
   bias: number
   normalBias: number
@@ -53,21 +45,11 @@ interface LightDefinition<Defaults extends Record<string, unknown>> {
   defaults: Defaults
   /** Inclusive ranges for fields three misbehaves outside of. */
   clamp?: Record<string, [min: number, max: number]>
-  /**
-   * The complete set of values a string field may hold. The parser rejects
-   * anything else back to the default and the panel shows a menu rather than
-   * a text box — both from this one list.
-   */
+  /** Every value the field may hold. Drives both the parser and the panel's menu. */
   options?: Record<string, readonly string[]>
 }
 
-/**
- * The shapes a lightformer can take.
- *
- * drei also accepts `plane`, which builds the same `planeGeometry` as `rect`,
- * and any component you pass it. Neither belongs in a file format: one is a
- * duplicate and the other is not serialisable.
- */
+/** drei also takes `plane` (the same geometry as `rect`) and any component. Neither is JSON. */
 export const LIGHTFORMER_FORMS = ['rect', 'circle', 'ring', 'box'] as const
 
 export type LightformerForm = (typeof LIGHTFORMER_FORMS)[number]
@@ -79,10 +61,7 @@ function define<Defaults extends Record<string, unknown>>(
   return definition
 }
 
-/**
- * Intensities assume physically-correct lighting (three >= r155), which is why
- * point and spot values are in the tens rather than around 1.
- */
+/** Intensities assume physically-correct lighting (three >= r155). */
 export const LIGHT_DEFINITIONS = {
   ambient: define({
     label: 'Ambient',
@@ -94,7 +73,7 @@ export const LIGHT_DEFINITIONS = {
     defaults: {
       ...COMMON,
       intensity: 1,
-      /** Direction of the sky colour, normalised by three. Not a location. */
+      /** Sky direction, normalised by three. Not a location. */
       position: [0, 1, 0] as Vec3,
       groundColor: '#444444',
     },
@@ -133,7 +112,7 @@ export const LIGHT_DEFINITIONS = {
       target: [0, 0, 0] as Vec3,
       distance: 0,
       decay: 2,
-      /** Cone half-angle in radians. */
+      /** Cone half-angle, in radians. */
       angle: Math.PI / 6,
       penumbra: 0.2,
       shadow: SHADOW,
@@ -153,17 +132,7 @@ export const LIGHT_DEFINITIONS = {
     },
   }),
 
-  /**
-   * A shape that exists only inside the environment map.
-   *
-   * Not a three light at all: it is a flat emissive mesh rendered into the
-   * environment's cube map, so what it lights is reflections and ambient
-   * response rather than surfaces directly. That is what studio softboxes and
-   * strip lights actually are, and what a rectArea light only approximates.
-   *
-   * Bigger and brighter by default than the real lights above, because that is
-   * what it is for — a large soft source, not a lamp.
-   */
+  /** Not a three light: an emissive mesh drawn into the environment's cube map. */
   lightformer: define({
     label: 'Lightformer',
     defaults: {
@@ -174,10 +143,7 @@ export const LIGHT_DEFINITIONS = {
       width: 4,
       height: 4,
       form: 'rect' as LightformerForm,
-      /**
-       * Off, matching drei. A softbox is a light source rather than a surface,
-       * and tone mapping one crushes exactly the highlight it exists to make.
-       */
+      /** Off, matching drei. Tone mapping a source crushes the highlight it makes. */
       toneMapped: false,
     },
     options: { form: LIGHTFORMER_FORMS },
@@ -186,18 +152,14 @@ export const LIGHT_DEFINITIONS = {
 
 export type LightType = keyof typeof LIGHT_DEFINITIONS
 
-/**
- * Every type, in the order they are defined above, which is also the order the
- * add menu offers them. Derived rather than written out, so a seventh light
- * type appears in the menu by being defined.
- */
+/** Definition order, which is also the add menu's. */
 export const LIGHT_TYPES = Object.keys(LIGHT_DEFINITIONS) as LightType[]
 
-/** The fields a light can expose as a point you drag. Not every type has both. */
+/** The fields a light can expose as a draggable point. Not every type has both. */
 export type VectorField = 'position' | 'target'
 
 type ConfigFor<T extends LightType> = {
-  /** Stable across exports and readable in a diff. Never an array index. */
+  /** Never an array index: it has to survive a reorder. */
   id: string
   type: T
 } & (typeof LIGHT_DEFINITIONS)[T]['defaults']
@@ -215,19 +177,10 @@ export type LightConfig = { [T in LightType]: ConfigFor<T> }[LightType]
 /** `Omit` collapses a union to its shared keys; this keeps the members apart. */
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
-/**
- * A partial update to one light. Because it distributes, `{ angle: 0.4 }` is
- * accepted for a spot light but there is no member that also has `groundColor`.
- */
+/** Distributes, so `{ angle }` is accepted but no member also has `groundColor`. */
 export type LightPatch = Partial<DistributiveOmit<LightConfig, 'id' | 'type'>>
 
-/**
- * drei's ten hosted HDRIs, fetched from its CDN at runtime.
- *
- * Written out rather than imported from drei: this is the file format, and the
- * format should not change shape because a dependency shipped an eleventh sky.
- * A preset drei drops still parses, and warns.
- */
+/** drei's hosted HDRIs. Written out, so the format does not move when drei ships an eleventh. */
 export const ENVIRONMENT_PRESETS = [
   'apartment',
   'city',
@@ -252,58 +205,37 @@ export interface EnvironmentGround {
 }
 
 /**
- * Showing the environment behind the scene, rather than only lighting with it.
- *
- * This is the one place the rig writes something outside the lights —
- * `scene.background` — and it earns it. Without it there is no way to ship a
- * rig's environment as a backdrop: an app would have to declare the same
- * `preset` a second time in its own `<Environment background="only" />`, which
- * then silently stops matching the moment you change it here. For a rig built
- * out of lightformers it is not merely duplicated but impossible, because the
- * app cannot reproduce the cube map they are drawn into.
- *
- * `blur`, `intensity` and `rotation` are `scene.backgroundBlurriness`,
- * `backgroundIntensity` and `backgroundRotation`. They are only sent to three
- * while `enabled` — see `EnvironmentRig` for why that matters.
+ * The one place the rig writes outside the lights. An app cannot reproduce this
+ * itself for a rig built out of lightformers: it has no access to their cube map.
  */
 export interface EnvironmentBackground {
   enabled: boolean
-  /** 0 to 1. Above 0, three renders the background through PMREM. */
+  /** `scene.backgroundBlurriness`, 0 to 1. Above 0, three renders through PMREM. */
   blur: number
+  /** `scene.backgroundIntensity`. */
   intensity: number
-  /** Euler radians, turning the backdrop without turning the lighting. */
+  /** `scene.backgroundRotation`, Euler radians. Turns the backdrop, not the lighting. */
   rotation: Vec3
 }
 
-/**
- * The image-based light: what the scene sees in every direction.
- *
- * Three sources, and they layer. A `preset` or `files` supplies the sky, and
- * any `lightformer` in `lights` is drawn on top of it — which is the whole
- * point, since a lightformer is how you put a softbox in an HDRI you did not
- * shoot. `ground` is the exception and does not layer: see `parseSetup`.
- */
 export interface EnvironmentConfig {
   enabled: boolean
   /** Empty means none. */
   preset: '' | EnvironmentPreset
   /** A path or URL to an .hdr or .exr. Empty means none. Beats `preset`. */
   files: string
-  /** Scales the environment's contribution to lighting. `scene.environmentIntensity`. */
+  /** `scene.environmentIntensity`. */
   intensity: number
-  /** Euler radians. `scene.environmentRotation`. */
+  /** `scene.environmentRotation`, Euler radians. */
   rotation: Vec3
   /** Cube render-target size for the pass that draws the lightformers. */
   resolution: number
   background: EnvironmentBackground
+  /** Does not layer with the rest: see `checkEnvironment`. */
   ground: EnvironmentGround
 }
 
-/**
- * How the environment is addressed where a light would be addressed by its id
- * — the outliner's selection, and the studio's solo list. A light may not take
- * it; `parseSetup` renames one that tries.
- */
+/** How the environment is addressed where a light would be addressed by its id. */
 export const ENVIRONMENT_ID = 'environment'
 
 export const ENVIRONMENT_DEFAULTS: EnvironmentConfig = {
@@ -313,31 +245,17 @@ export const ENVIRONMENT_DEFAULTS: EnvironmentConfig = {
   intensity: 1,
   rotation: [0, 0, 0],
   resolution: 256,
-  // Off, and at three's own values for when it is on. A rig lights a scene by
-  // default; showing itself is something you ask for.
   background: { enabled: false, blur: 0, intensity: 1, rotation: [0, 0, 0] },
-  // three-stdlib's own numbers, restated so the file says what it does rather
-  // than leaving three fields blank and hoping the library agrees.
+  // three-stdlib's own numbers, restated so the file says what it does.
   ground: { enabled: false, radius: 100, height: 15, scale: 1000 },
 }
 
-/** The same role `LightDefinition.options` plays, for the one config that has no definition. */
+/** `LightDefinition.options`, for the one config with no definition. */
 export const ENVIRONMENT_OPTIONS: Record<string, readonly string[]> = {
   preset: ['', ...ENVIRONMENT_PRESETS],
 }
 
-/**
- * The rig, and nothing else.
- *
- * Tone mapping and exposure used to live here and no longer do: they are the
- * renderer's, which belongs to `<Canvas>`. Two owners of `gl.toneMapping` is a
- * conflict a lighting rig cannot win — see the note in `LightStudio`.
- *
- * `environment` is not optional in memory and is usually absent on disk: it
- * strips to nothing when untouched, the way every other default does. An
- * environment with no preset, no files and no lightformers renders nothing at
- * all, so a rig that never asked for one never pays for one.
- */
+/** Tone mapping and exposure are not here: they belong to `<Canvas>`. */
 export interface LightSetup {
   version: number
   meta?: {

@@ -1,24 +1,10 @@
-import type { StudioState } from '../../core/store'
+import type { StudioState } from '../../core/state'
 import { useStudio, useStudioStore } from '../context'
 
 /**
- * The strip over the outliner: which version of the rig you are working in.
- *
- * First in the column because it is the outermost question — which one of these
- * am I editing — and the outliner underneath answers what is in it.
- *
- * A workspace is somewhere you work, not a copy you set aside. There is no
- * taking and no restoring: whatever you edit goes to the one you are in, and `+`
- * forks a new one from what is in front of you.
- *
- * `file` is not one of them. It is read-only, and it is the store's `baseline`
- * rather than an entry — so it cannot drift, cannot be deleted, and shows the
- * new contents the moment you save. Editing while you are on it forks, which is
- * why the strip is just `file +` until you have done something.
- *
- * Only the workspaces that exist are drawn. The first attempt was nine empty
- * numbered slots, and it could not answer the first question anyone asked of it,
- * which was what the numbers meant.
+ * Which version of the rig you are working in. `file` is not one of them: it is
+ * `baseline` rather than an entry, so it cannot drift or be deleted, and
+ * editing while on it forks.
  */
 export function Workspaces() {
   const store = useStudioStore()
@@ -27,7 +13,7 @@ export function Workspaces() {
 
   return (
     <div className="ls-workspaces">
-      {/* No × and no fork of its own: it is the one chip that is always here. */}
+      {/* No ×: it is the one chip that is always here. */}
       <button
         type="button"
         className="ls-ws ls-ws-file"
@@ -54,12 +40,7 @@ export function Workspaces() {
   )
 }
 
-/**
- * Ids rather than whole workspaces, because `useShallow` compares element by
- * element with `Object.is` — a mapped array of fresh `{ id, label }` objects
- * would differ every render and re-render the strip on every keystroke of a
- * drag. Strings do not. Each chip reads its own label, which is a string too.
- */
+/** Ids, not whole workspaces: fresh objects would re-render on every keystroke. */
 function selectIds(state: StudioState): string[] {
   return state.workspaces.map((workspace) => workspace.id)
 }
@@ -83,8 +64,7 @@ function Chip({ id }: { id: string }) {
         {label}
       </button>
 
-      {/* A sibling rather than nested inside the chip: a button inside a button
-          is not something a browser or a screen reader can make sense of. */}
+      {/* A sibling, because a button inside a button is not valid HTML. */}
       <button
         type="button"
         className="ls-ws-clear"

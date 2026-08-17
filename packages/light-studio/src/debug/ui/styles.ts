@@ -1,20 +1,12 @@
 /**
- * The editor's stylesheet, injected once as a `<style>` tag.
- *
- * Not a `.css` file: this package is consumed as source-or-bundle by apps that
- * should not have to remember a side-effect import, and a stylesheet emitted
- * from the debug chunk would still need one. Not inline styles either — the
- * outliner needs `:hover` and `:focus-visible`, which inline styles cannot
- * express.
- *
- * The palette is leva's dark theme, deliberately. Leva currently rents the
- * properties slot, and a column that looks like two different tools stapled
- * together is worse than either. When it is replaced these become the theme.
+ * Injected as a style tag rather than a `.css` file, so apps consuming this as
+ * source need no side-effect import. The palette is leva's dark theme, since
+ * leva rents the properties slot.
  */
 
 const STYLE_ID = 'r3f-light-studio-styles'
 
-/** Column geometry. Leva's own panel is 280px, so the slot matches it. */
+/** 280px matches leva's own panel width. */
 const CSS = `
 .ls-root {
   --ls-bg: #292d39;
@@ -43,8 +35,7 @@ const CSS = `
   line-height: 1;
 }
 
-/* Put away with the toggle key. Needed explicitly: the display above beats
-   the browser's own [hidden] rule, which is only display: none. */
+/* Explicit, because the display above beats the browser's own [hidden] rule. */
 .ls-root[hidden] { display: none; }
 
 .ls-panel {
@@ -57,11 +48,7 @@ const CSS = `
   overflow: hidden;
 }
 
-/* The workspace strip. Its own bar rather than a panel: one row, no header, and
-   nothing in it to collapse.
-
-   Named ls-ws rather than ls-slot because the properties panel already owns
-   ls-slot as the box leva fills, and these rules would have resized it. */
+/* Named ls-ws because the properties panel already owns ls-slot. */
 .ls-workspaces {
   display: flex;
   align-items: center;
@@ -93,8 +80,6 @@ const CSS = `
 .ls-ws:hover,
 .ls-ws-add:hover { background: var(--ls-bg-raised); color: var(--ls-text); }
 
-/* Exactly one is ever lit, and it means "you are here". Nothing to disambiguate
-   from, which the numbered-slot version could not manage. */
 .ls-ws[data-active='true'] {
   background: var(--ls-accent);
   border-color: var(--ls-accent);
@@ -104,21 +89,17 @@ const CSS = `
 .ls-ws:focus-visible,
 .ls-ws-add:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: 1px; }
 
-/* Dashed and dimmer: it is the one chip that is not a place you can be. */
+/* Dashed: the one chip that is not a place you can be. */
 .ls-ws-add { border-style: dashed; color: var(--ls-text-faint); }
 
-/* Set apart from the workspaces, because it is not one of them: read-only, and
-   the thing they are all versions of. */
+/* Set apart, because it is not a workspace. */
 .ls-ws-file { margin-right: 3px; border-style: dotted; }
 
-/* Holds the delete button over the chip's top-right without taking a column of
-   its own, so the strip's spacing does not change as one appears. */
+/* Anchors the × without taking a column of its own. */
 .ls-ws-cell { position: relative; display: flex; }
 
-/* Lifted while you are reaching for it. The cells are positioned siblings with
-   no z-index of their own, so they paint in document order and the next chip
-   covered the × overhanging it — the delete button for 1 sat behind 2. Only
-   while hovered or focused, which is the only time the × is on screen. */
+/* Positioned siblings with no z-index paint in document order, so the next
+   chip would cover the × overhanging it. */
 .ls-ws-cell:hover,
 .ls-ws-cell:focus-within { z-index: 1; }
 
@@ -140,8 +121,7 @@ const CSS = `
   cursor: pointer;
 }
 
-/* On hover of the cell, so it does not sit over the label until you are reaching
-   for it — and on focus, so the keyboard can get to it at all. */
+/* :focus-visible is what makes it reachable by keyboard. */
 .ls-ws-cell:hover .ls-ws-clear,
 .ls-ws-clear:focus-visible { display: flex; align-items: center; justify-content: center; }
 .ls-ws-clear:hover { background: var(--ls-solo); color: #000; }
@@ -158,7 +138,7 @@ const CSS = `
   user-select: none;
 }
 
-/* The whole title area is the collapse control; the aside beside it is not. */
+/* The title area collapses; the aside beside it does not. */
 .ls-head-toggle {
   display: flex;
   align-items: center;
@@ -192,7 +172,7 @@ const CSS = `
   text-overflow: ellipsis;
 }
 
-/* Collapsed sections keep their body mounted — see Panel. */
+/* Collapsed sections keep their body mounted: see Panel. */
 .ls-body {
   display: flex;
   flex-direction: column;
@@ -230,11 +210,10 @@ const CSS = `
   box-shadow: inset 0 0 0 1px #0006;
 }
 
-/* The environment has no colour of its own — it is whatever is in it. Sky over
-   ground says which row this is without spending any width on saying so. */
+/* Sky over ground, since the environment has no colour of its own. */
 .ls-swatch-env { background: linear-gradient(#7fa8d6, #6b5c4a); }
 
-/* No type label and no hover-swap: its one action is always on show. */
+/* No hover-swap: its one action is always on show. */
 .ls-row-env .ls-backdrop { margin-left: 4px; }
 
 .ls-name {
@@ -264,15 +243,8 @@ const CSS = `
 }
 .ls-row[data-selected='true'] .ls-type { color: #ffffff99; }
 
-/*
- * Duplicate and delete take the type label's place rather than sitting beside
- * it — six controls do not fit in 280px, and the label is the one thing here
- * the swatch, the name and the properties panel all repeat.
- *
- * On the selected row as well as on hover, because the selected light is the
- * one the keyboard acts on and it is worth saying so. :focus-within is what
- * keeps them reachable by tab, which :hover alone would not.
- */
+/* These take the type label's place: six controls do not fit in 280px. Shown
+   on the selected row too, since that is the one the keyboard acts on. */
 .ls-row-actions {
   display: none;
   gap: 2px;
@@ -301,9 +273,7 @@ const CSS = `
   cursor: pointer;
 }
 .ls-toggle:hover { background: #ffffff1a; color: var(--ls-text); }
-/* Still shows its state and still explains itself on hover — it just has
-   nothing left to toggle. Used by the backdrop override once the rig commits
-   to a backdrop of its own. */
+/* Keeps its state and its tooltip, and has nothing left to toggle. */
 .ls-toggle:disabled { cursor: default; }
 .ls-toggle:disabled:hover { background: none; }
 .ls-toggle:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: -1px; }
@@ -311,15 +281,10 @@ const CSS = `
 .ls-toggle[data-on='false'] { color: var(--ls-text-faint); }
 .ls-toggle.ls-solo[data-on='true'] { color: var(--ls-solo); }
 
-/* The one control in the studio that removes something, and the only one that
-   goes red for it. Everything else in a row is a toggle. After the .ls-toggle
-   rules above, which it shares a class and a specificity with. */
+/* After the .ls-toggle rules, which it ties with on specificity. */
 .ls-delete:hover { background: #8a3b3b; color: var(--ls-text); }
 
-/*
- * How many lights the solo is showing. Just the count — the colour already
- * says which state this is, and it matches the amber of the toggles it counts.
- */
+/* How many lights the solo is showing. */
 .ls-solo-badge {
   display: grid;
   place-items: center;
@@ -337,9 +302,7 @@ const CSS = `
 }
 .ls-solo-badge:hover { background: #ffbb4d; }
 
-/* The header's icon buttons — grey mode and close. Shaped like a row toggle so
-   the whole column's controls match, but they belong to the panel rather than to
-   any one light in the list. */
+/* Grey mode and close. Shaped like a row toggle, but owned by the panel. */
 .ls-icon {
   display: grid;
   place-items: center;
@@ -356,16 +319,12 @@ const CSS = `
 }
 .ls-icon:hover { background: #ffffff1a; color: var(--ls-text); }
 .ls-icon:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: -1px; }
-
-/* Lit like a row toggle: grey mode is a state you can leave on, and the header
-   is the only thing that would tell you it is. */
 .ls-icon[data-on='true'] { color: var(--ls-text); }
 
-/* The last thing on the right of the whole column, so it sits out at the
-   panel's edge rather than in from it. */
+/* Sits out at the panel's edge, being last in the column. */
 .ls-close { margin-right: -4px; }
 
-/* Shaped like the × beside it. Only the wrapper is here to anchor the menu. */
+/* The wrapper only exists to anchor the menu. */
 .ls-add-wrap { display: flex; flex: none; }
 .ls-add {
   display: grid;
@@ -384,8 +343,7 @@ const CSS = `
 .ls-add:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: -1px; }
 .ls-add[aria-expanded='true'] { background: #ffffff1a; color: var(--ls-text); }
 
-/* Fixed, and placed from the button's own rect: the panel clips its overflow
-   for the sake of its rounded corners, and this is taller than a short panel. */
+/* Fixed, placed from the button's rect: the panel clips its overflow. */
 .ls-menu {
   position: fixed;
   z-index: 1;
@@ -419,10 +377,7 @@ const CSS = `
   text-align: center;
 }
 
-/*
- * Outside the panels, so collapsing them cannot take it away. Shaped like a
- * panel header rather than a panel: it is a strip of controls, not a section.
- */
+/* Outside the panels, so collapsing them cannot take it away. */
 .ls-footer {
   display: flex;
   align-items: center;
@@ -437,17 +392,13 @@ const CSS = `
   user-select: none;
 }
 
-/* Only shown while the rig has drifted from the file, so it reads as a state
-   to clear rather than a label. Losing it is the confirmation of a save. */
-/* Pinned left, which is also what pushes the buttons right when it is here.
-   The bar ends flush right on its own when it is not. */
+/* Pinned left, which is what pushes the buttons right when it is here. */
 .ls-state {
   margin-right: auto;
   color: var(--ls-text-dim);
 }
 
-/* Quieter than Copy on purpose: it appears next to it, and the one that
-   discards your work should not be the one that draws the eye. */
+/* Quieter than Copy: the one that discards your work should not draw the eye. */
 .ls-reset {
   flex: none;
   height: 18px;
@@ -480,8 +431,6 @@ const CSS = `
 .ls-copy[data-status='copied'] { background: #2f7d52; }
 .ls-copy[data-status='failed'] { background: #8a3b3b; }
 
-/* The primary action when there is a dev server to take it, so it is the one
-   thing in the bar carrying the accent. Rightmost, where the last button was. */
 .ls-save {
   flex: none;
   height: 18px;
@@ -500,37 +449,20 @@ const CSS = `
 .ls-save[data-status='saved'] { background: #2f7d52; }
 .ls-save[data-status='failed'] { background: #8a3b3b; }
 
-/* Leva fills the slot. Kept mounted while nothing is selected: unmounting it
-   hands the panel back to leva's own floating root.
-
-   Isolated because leva layers its own insides — a row is z-index 100, and a
-   popin goes to 10000 at runtime — and with nothing to stop them those numbers
-   competed against ours in the same stacking context, so a leva input painted
-   over the light picker. Isolating makes leva's layering leva's business and
-   stops it at this box, rather than us bidding higher and losing again the next
-   time leva picks a number. */
+/* Isolated because leva layers its own insides, a row at z-index 100 and a
+   popin at 10000, which otherwise compete with ours in the same stacking
+   context. Better than outbidding numbers leva can change. */
 .ls-slot { overflow-y: auto; isolation: isolate; }
 .ls-slot[hidden] { display: none; }
 
-/*
- * Leva keeps a folder's separating chrome above its own divider: a border,
- * 6px of padding and a 10px margin. Collapsed, that margin reads as a hole
- * beneath whatever sits above the folder, and the panel ends on two stacked
- * ones. The border and padding stay — only the margin goes.
- *
- * Hooked to leva's wrapper class rather than its theme because the value is
- * --leva-space-md, which also sets the left and right padding on every row;
- * turning the token down would un-pad the whole panel. The :not() matches
- * leva's own selector, and .ls-root puts this one class above it — otherwise
- * the two tie on specificity and injection order decides.
- */
+/* Leva puts a 10px margin above a folder's divider, which reads as a hole when
+   collapsed. Hooked to the wrapper class rather than the theme, because the
+   token is --leva-space-md and that also pads every row. .ls-root is what wins
+   the specificity tie against leva's own selector. */
 .ls-root .ls-slot .leva-c-PJLV:not(:first-of-type) { margin-top: 0; }
 `
 
-/**
- * Idempotent: two `<LightStudio debug />` in one app, or an HMR reload, must
- * not stack duplicate stylesheets.
- */
+/** Idempotent: two studios in one app, or an HMR reload, must not stack sheets. */
 export function injectStyles(): void {
   if (document.getElementById(STYLE_ID)) return
   const style = document.createElement('style')

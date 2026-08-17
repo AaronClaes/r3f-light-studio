@@ -11,7 +11,6 @@ const SVG = {
   strokeLinejoin: 'round',
 } as const
 
-/** Blender's outliner marks visibility with an eye; so does this. */
 export function EyeIcon({ open }: { open: boolean }) {
   return (
     <svg {...SVG} aria-hidden>
@@ -22,7 +21,7 @@ export function EyeIcon({ open }: { open: boolean }) {
   )
 }
 
-/** Section collapse marker, pointing down when open. Rotated in CSS. */
+/** Rotated in CSS. */
 export function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg className="ls-chevron" data-open={open} width="8" height="8" viewBox="0 0 8 8" aria-hidden>
@@ -31,10 +30,6 @@ export function ChevronIcon({ open }: { open: boolean }) {
   )
 }
 
-/**
- * Puts the studio away. An X and not an eye: the eyes in the rows are about
- * one light reaching the scene, and this is about the whole tool leaving.
- */
 export function CloseIcon() {
   return (
     <svg {...SVG} aria-hidden>
@@ -43,7 +38,6 @@ export function CloseIcon() {
   )
 }
 
-/** Adds a light. Opens the type menu rather than adding one straight away. */
 export function PlusIcon() {
   return (
     <svg {...SVG} aria-hidden>
@@ -52,7 +46,6 @@ export function PlusIcon() {
   )
 }
 
-/** Two sheets, the usual copy glyph, for duplicating a light. */
 export function DuplicateIcon() {
   return (
     <svg {...SVG} aria-hidden>
@@ -62,11 +55,7 @@ export function DuplicateIcon() {
   )
 }
 
-/**
- * A bin and not an X: the X in the header puts the studio away, and the two
- * sit a few pixels apart. One is reversible by pressing a key; the other
- * removes a light from the rig.
- */
+/** A bin, not an X: the X in the header is a few pixels away and is reversible. */
 export function TrashIcon() {
   return (
     <svg {...SVG} aria-hidden>
@@ -76,12 +65,7 @@ export function TrashIcon() {
   )
 }
 
-/**
- * A framed horizon, for showing the environment behind the scene.
- *
- * Not an eye: the eyes in this column decide whether something lights the
- * scene, and this only decides whether you can look straight at it.
- */
+/** A framed horizon, not an eye: this only decides whether you can look at it. */
 export function BackdropIcon() {
   return (
     <svg {...SVG} aria-hidden>
@@ -92,10 +76,7 @@ export function BackdropIcon() {
   )
 }
 
-/**
- * A sphere with a terminator across it — the grey ball every lighter keeps on
- * set, and the one shape that shows a whole falloff at once.
- */
+/** The grey ball with a terminator across it. */
 export function GreyIcon() {
   return (
     <svg {...SVG} aria-hidden>
@@ -105,7 +86,6 @@ export function GreyIcon() {
   )
 }
 
-/** Solo is a filled dot rather than an eye: it is a different kind of state. */
 export function SoloIcon({ on }: { on: boolean }) {
   return (
     <svg {...SVG} aria-hidden>

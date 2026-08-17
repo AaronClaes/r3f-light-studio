@@ -3,12 +3,8 @@ import * as THREE from 'three'
 import type { Vec3 } from '../../core/schema'
 
 /**
- * Line geometries for the debug helpers.
- *
- * Shapes with a direction are authored pointing down -Z, matching three's
- * `lookAt` convention, so a group aimed at the light's target orients them.
- *
- * Every builder returns vertex *pairs*, for `<lineSegments>`.
+ * Directional shapes point down -Z, matching three's `lookAt`, so a group aimed
+ * at the target orients them. Every builder returns vertex *pairs*.
  */
 
 const RIM_SEGMENTS = 32
@@ -16,8 +12,24 @@ const CONE_SPOKES = 4
 const RING_DASHES = 12
 /** Fraction of each dash-plus-gap that is drawn. */
 const RING_DASH_DUTY = 0.55
-/** Segments per dash — enough that a dash reads as an arc, not a chord. */
+/** Enough that a dash reads as an arc rather than a chord. */
 const RING_DASH_STEPS = 3
+
+/** A face's corners, in order, so consecutive pairs are its edges. */
+const BOX_CORNERS = [
+  [-1, -1],
+  [1, -1],
+  [1, 1],
+  [-1, 1],
+] as const
+
+/** `as const` so each arm destructures as a pair of numbers, not of maybes. */
+const CROSS_ARMS = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+] as const
 
 function fromPairs(positions: number[]): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry()
@@ -47,20 +59,14 @@ export function wireLine(from: Vec3, to: Vec3): THREE.BufferGeometry {
   return fromPairs([...from, ...to])
 }
 
-/** Centred on the origin in the XY plane, so an aimed group faces it at the target. */
+/** Centred on the origin in the XY plane. */
 export function wireRectangle(width: number, height: number): THREE.BufferGeometry {
   const x = width / 2
   const y = height / 2
   return fromPairs([-x, -y, 0, x, -y, 0, x, -y, 0, x, y, 0, x, y, 0, -x, y, 0, -x, y, 0, -x, -y, 0])
 }
 
-/**
- * Centred on the origin in the XY plane, like `wireRectangle`.
- *
- * Takes a width and a height rather than a radius because that is what the
- * schema stores: a lightformer is scaled on two axes, so a circular one is an
- * ellipse the moment its width and height differ.
- */
+/** Width and height rather than a radius: a lightformer is scaled on two axes. */
 export function wireEllipse(width: number, height: number): THREE.BufferGeometry {
   const positions: number[] = []
   pushEllipse(positions, width / 2, height / 2, (x, y) => [x, y, 0])
@@ -89,14 +95,6 @@ export function wireBox(width: number, height: number, depth: number): THREE.Buf
   return fromPairs(positions)
 }
 
-/** A face's corners, in order, so consecutive pairs are its edges. */
-const BOX_CORNERS = [
-  [-1, -1],
-  [1, -1],
-  [1, 1],
-  [-1, 1],
-] as const
-
 /** Apex at the origin, opening toward -Z. */
 export function wireCone(radius: number, length: number): THREE.BufferGeometry {
   const positions: number[] = []
@@ -111,12 +109,8 @@ export function wireCone(radius: number, length: number): THREE.BufferGeometry {
 }
 
 /**
- * A ring of short arcs with gaps between them, in the XY plane.
- *
- * The dashes are baked into the geometry rather than drawn with
- * `LineDashedMaterial`, whose dash length is measured in local units — a handle
- * rescales every frame to hold its size on screen, which would make real dashes
- * stretch and crawl as you move the camera.
+ * Dashes baked into the geometry, not `LineDashedMaterial`, whose dash length
+ * is in local units: a handle rescales every frame, so real dashes would crawl.
  */
 export function dashedCircle(radius: number): THREE.BufferGeometry {
   const positions: number[] = []
@@ -143,10 +137,8 @@ export function dashedCircle(radius: number): THREE.BufferGeometry {
 }
 
 /**
- * Four arms along the axes with a gap in the middle, in the XY plane.
- *
  * A reticle rather than a star: the gap is what you aim with, and it keeps the
- * beam arriving at the point from reading as a fifth arm.
+ * arriving beam from reading as a fifth arm.
  */
 export function wireCross(inner: number, outer: number): THREE.BufferGeometry {
   const positions: number[] = []
@@ -158,21 +150,13 @@ export function wireCross(inner: number, outer: number): THREE.BufferGeometry {
   return fromPairs(positions)
 }
 
-/** `as const` so each arm destructures as a pair of numbers, not of maybes. */
-const CROSS_ARMS = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-] as const
-
 /** A square stood on its corner, in the XY plane. */
 export function wireDiamond(radius: number): THREE.BufferGeometry {
   const r = radius
   return fromPairs([r, 0, 0, 0, r, 0, 0, r, 0, -r, 0, 0, -r, 0, 0, 0, -r, 0, 0, -r, 0, r, 0, 0])
 }
 
-/** Three great circles — cheaper to read than a wireframe sphere. */
+/** Three great circles, cheaper to read than a wireframe sphere. */
 export function wireSphere(radius: number): THREE.BufferGeometry {
   const positions: number[] = []
   pushCircle(positions, radius, (x, y) => [x, y, 0])

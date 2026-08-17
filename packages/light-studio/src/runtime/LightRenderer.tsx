@@ -20,21 +20,17 @@ type DirectLight = Exclude<LightConfig, LightformerConfig>
 
 interface LightRendererProps {
   lights: LightConfig[]
-  /** null when there is no environment to render, or it is switched off. */
+  /** null when there is none, or it is switched off. */
   environment?: EnvironmentConfig | null
-  /** Whatever the app put in `<LightStudio.Environment>`. Hidden with it. */
   environmentContent?: ReactNode
-  /** Shows the backdrop whatever the rig says. The editor's override. */
+  /** The editor's override, which shows the backdrop whatever the rig says. */
   forceBackground?: boolean
 }
 
 /**
- * Turns a setup into r3f elements. Deliberately dumb: no store, no editor
- * state. This is the code path that runs in production.
- *
- * Lightformers are separated out rather than rendered in place: they are not
- * three lights and they do not go in the scene. They are meshes drawn into the
- * environment's cube map, so they have to be children of `<Environment>`.
+ * The production path: no store, no editor state. Lightformers are split out
+ * because they are meshes in the environment's cube map, so they have to be
+ * children of `<Environment>`.
  */
 export function LightRenderer({
   lights,
@@ -181,11 +177,7 @@ function RectAreaLightNode({ light }: { light: RectAreaLightConfig }) {
   )
 }
 
-/**
- * three resolves a light's aim from its target's world matrix, so the target
- * has to be a real node in the scene graph. Creating it here is what lets the
- * schema store a plain `[x, y, z]` instead of an Object3D reference.
- */
+/** three aims from the target's world matrix, so it has to be a real node. */
 function useAimTarget(position: Vec3): THREE.Object3D {
   const target = useMemo(() => new THREE.Object3D(), [])
   const [x, y, z] = position
@@ -201,10 +193,8 @@ function useAimTarget(position: Vec3): THREE.Object3D {
 type ShadowCastingLight = THREE.DirectionalLight | THREE.PointLight | THREE.SpotLight
 
 /**
- * Applied imperatively rather than through r3f's dashed props because resizing
- * a shadow map is not a plain assignment: the existing render target has to be
- * disposed or three keeps rendering at the old resolution and leaks the
- * texture.
+ * Imperative rather than r3f's dashed props: resizing a shadow map has to
+ * dispose the old render target, or three keeps the old resolution and leaks it.
  */
 function useShadowConfig(
   ref: React.RefObject<ShadowCastingLight | null>,
@@ -247,10 +237,7 @@ function useShadowConfig(
 
 let rectAreaUniformsRequested = false
 
-/**
- * RectAreaLight renders black until its BRDF lookup tables are initialised.
- * They are ~247 kB, so they load lazily and only when a rig contains one.
- */
+/** RectAreaLight renders black without these, and they are ~247 kB. */
 function useRectAreaLightUniforms(needed: boolean): void {
   useEffect(() => {
     if (!needed || rectAreaUniformsRequested) return

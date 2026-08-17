@@ -1,3 +1,4 @@
+import { isFiniteNumber, isRecord, type UnknownRecord } from './json'
 import { uniqueId } from './lights'
 import {
   ENVIRONMENT_DEFAULTS,
@@ -17,21 +18,10 @@ export interface ParseResult {
   issues: string[]
 }
 
-type UnknownRecord = Record<string, unknown>
-
-/** String fields that must hold a hex colour rather than arbitrary text. */
 const COLOR_FIELDS = new Set(['color', 'groundColor'])
 
 const HEX = /^#[0-9a-f]{6}$/i
 const SHORT_HEX = /^#[0-9a-f]{3}$/i
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
-}
 
 function hexColor(value: unknown, fallback: string): string {
   if (typeof value !== 'string') return fallback
@@ -46,11 +36,7 @@ function hexColor(value: unknown, fallback: string): string {
   return HEX.test(expanded) ? expanded.toLowerCase() : fallback
 }
 
-/**
- * Coerces one field against its default. The default's runtime type is the
- * schema — a number default means the field must be a finite number, an array
- * default fixes the length, a record default recurses.
- */
+/** The default's runtime type is the schema. */
 function coerceField(key: string, value: unknown, fallback: unknown): unknown {
   if (typeof fallback === 'number') return isFiniteNumber(value) ? value : fallback
 
@@ -78,14 +64,7 @@ function coerceField(key: string, value: unknown, fallback: unknown): unknown {
   return fallback
 }
 
-/**
- * Puts a string field back to its default when it holds something outside the
- * set the schema allows.
- *
- * Runs after `coerceField`, which has already guaranteed a string — so a value
- * that fails here was spelled out on purpose and is worth a word, unlike a
- * missing field that quietly took its default.
- */
+/** Runs after `coerceField`, so a value that fails here was spelled out on purpose. */
 function applyOptions(
   target: UnknownRecord,
   options: Record<string, readonly string[]>,
@@ -142,7 +121,7 @@ function parseLight(raw: UnknownRecord, index: number, issues: string[]): LightC
   return light as LightConfig
 }
 
-/** Absent is the common case and means every default, not "no environment". */
+/** Absent means every default, not "no environment". */
 function parseEnvironment(raw: unknown, issues: string[]): EnvironmentConfig {
   const source = isRecord(raw) ? raw : {}
   const out: UnknownRecord = {}
@@ -162,13 +141,7 @@ function parseEnvironment(raw: unknown, issues: string[]): EnvironmentConfig {
   return out as unknown as EnvironmentConfig
 }
 
-/**
- * The combinations that parse cleanly and still do not do what they look like.
- *
- * All of these are legal files. None is worth refusing to load over, and every
- * one of them is worth a line in the console before you spend ten minutes
- * wondering where your lightformers went.
- */
+/** Legal files that still do not do what they look like. */
 function checkEnvironment(
   environment: EnvironmentConfig,
   lights: LightConfig[],
@@ -176,8 +149,6 @@ function checkEnvironment(
 ): void {
   const lightformers = lights.filter((light) => light.type === 'lightformer').length
 
-  // The dome is the environment image, wrapped around the horizon. Without one
-  // there is nothing to wrap, and drei's loader has no file to ask for.
   if (environment.ground.enabled && environment.preset === '' && environment.files === '') {
     issues.push(
       'Ground projection has nothing to project: it needs the environment to have a `preset` or `files`.',
@@ -189,7 +160,7 @@ function checkEnvironment(
   const source = `${lightformers} lightformer${lightformers === 1 ? '' : 's'}`
 
   // drei's <Environment> picks one branch from the props it was given, and
-  // `ground` is first — it renders the projected dome and drops the children.
+  // `ground` is first: it renders the dome and drops the children.
   if (environment.ground.enabled) {
     issues.push(
       `Ground projection replaces ${source}: drei's <Environment> renders one or the other. Turn the environment's ground off to see them.`,
@@ -201,10 +172,7 @@ function checkEnvironment(
   }
 }
 
-/**
- * Turns a JSON import, a hand-edited file or an older export into a fully
- * populated setup. Never throws — malformed input yields issues and defaults.
- */
+/** Never throws: malformed input yields issues and defaults. */
 export function parseSetup(input: unknown): ParseResult {
   const issues: string[] = []
 
@@ -226,10 +194,8 @@ export function parseSetup(input: unknown): ParseResult {
     )
   }
 
-  // Said out loud rather than dropped in silence. A file written by an older
-  // build can still carry one, and the next save would quietly delete settings
-  // someone committed on purpose — while the scene kept using them, because
-  // whatever `<Canvas>` says is still in force.
+  // An older build's file can still carry one, and the next save would quietly
+  // delete settings someone committed on purpose.
   if (input.renderer !== undefined) {
     issues.push(
       '`renderer` is no longer part of a setup and will be dropped on the next save. Tone mapping and exposure belong to <Canvas gl={{ ... }} />.',
@@ -242,8 +208,7 @@ export function parseSetup(input: unknown): ParseResult {
   const rawLights = Array.isArray(input.lights) ? input.lights : []
 
   const lights: LightConfig[] = []
-  // Seeded with the environment's, which the outliner and the solo list both
-  // address a light by. Taken, so `uniqueId` moves a light out of the way.
+  // Seeded with the environment's id, so `uniqueId` moves a light out of its way.
   const seen = new Set<string>([ENVIRONMENT_ID])
 
   for (const [index, raw] of rawLights.entries()) {

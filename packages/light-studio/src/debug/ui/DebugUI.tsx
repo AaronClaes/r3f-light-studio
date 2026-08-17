@@ -1,10 +1,12 @@
-import { LevaPanel, type useCreateStore } from 'leva'
+import { LevaPanel } from 'leva'
 import { useEffect, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 
+import { findLight } from '../../core/lights'
 import { ENVIRONMENT_ID, LIGHT_DEFINITIONS } from '../../core/schema'
-import type { StudioState } from '../../core/store'
+import type { StudioState } from '../../core/state'
 import { LightStudioStoreProvider, useStudio, useStudioStore } from '../context'
+import type { LevaStore } from '../panel/levaMirror'
 import { Footer } from './Footer'
 import { Outliner } from './Outliner'
 import { Panel } from './Panel'
@@ -12,24 +14,10 @@ import { injectStyles } from './styles'
 import { Workspaces } from './Workspaces'
 
 /**
- * The editor's DOM: an outliner over a properties panel, docked right.
- *
- * ## Why this mounts its own React root
- *
- * `<LightStudio />` lives inside `<Canvas>`, so the reconciler around it is
- * r3f's — it builds THREE objects, and a `<div>` in that tree throws.
- * `createPortal` does not help, because a portal still renders through the
- * reconciler it was created under. drei's `<Html>` solves this the same way:
- * a second React root over a real DOM node.
- *
- * The two roots share state without ceremony because the studio store is a
- * vanilla zustand store behind a context rather than a hook — the same store
- * object is simply provided to both trees.
+ * A React root of its own, because `<LightStudio />` lives inside `<Canvas>`,
+ * where the reconciler builds THREE objects and a `<div>` throws. `createPortal`
+ * does not help: a portal renders through the reconciler it was created under.
  */
-
-/** Leva's store is not a React value, so it crosses the root boundary as a prop. */
-type LevaStore = ReturnType<typeof useCreateStore>
-
 export function DebugUI({ levaStore }: { levaStore: LevaStore }) {
   const store = useStudioStore()
   const visible = useStudio((state) => state.visible)
@@ -45,8 +33,7 @@ export function DebugUI({ levaStore }: { levaStore: LevaStore }) {
     containerRef.current = container
 
     const root = createRoot(container)
-    // Rendered once. Everything inside reads the store directly, so there is
-    // nothing for the outer tree to push in on re-render.
+    // Rendered once: everything inside reads the store directly.
     root.render(
       <LightStudioStoreProvider value={store}>
         <StudioUI levaStore={levaStore} />
@@ -62,14 +49,8 @@ export function DebugUI({ levaStore }: { levaStore: LevaStore }) {
     }
   }, [store, levaStore])
 
-  /**
-   * Hidden on the container rather than by unmounting the tree inside it.
-   *
-   * The tree owns state worth keeping — which sections you collapsed, a rename
-   * you were halfway through — and leva's panel must stay mounted regardless,
-   * or leva takes it back into a floating root of its own. Hiding the one node
-   * they all sit under does both at once.
-   */
+  // On the container, not by unmounting: the tree owns state worth keeping, and
+  // leva's panel has to stay mounted regardless.
   useEffect(() => {
     const container = containerRef.current
     if (container) container.hidden = !visible
@@ -93,8 +74,7 @@ function StudioUI({ levaStore }: { levaStore: LevaStore }) {
       >
         {selected ? null : <p className="ls-empty">Select a light to edit it.</p>}
 
-        {/* Hidden rather than unmounted: leva hands the panel back to its own
-            floating root the moment the last one unmounts. */}
+        {/* Hidden rather than unmounted, for the same reason as above. */}
         <div className="ls-slot" hidden={!selected}>
           <LevaPanel store={levaStore} fill flat titleBar={false} hideCopyButton />
         </div>
@@ -105,15 +85,11 @@ function StudioUI({ levaStore }: { levaStore: LevaStore }) {
   )
 }
 
-/**
- * What to put in the properties header: what you selected, and what kind of
- * thing it is. The environment has no second half — "Environment" twice is
- * worse than once.
- */
+/** The environment gets no type label: "Environment" twice is worse than once. */
 function selectSelected(state: StudioState): { title: string; label: string | null } | null {
   if (state.selectedId === ENVIRONMENT_ID) return { title: 'Environment', label: null }
 
-  const light = state.setup.lights.find((candidate) => candidate.id === state.selectedId)
+  const light = findLight(state.setup, state.selectedId)
   if (!light) return null
   return { title: light.name || light.id, label: LIGHT_DEFINITIONS[light.type].label }
 }

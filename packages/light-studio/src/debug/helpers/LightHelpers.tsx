@@ -16,30 +16,23 @@ import { useDrawnLights } from '../drawnLights'
 import { wireBox, wireCone, wireEllipse, wireLine, wireRectangle, wireSphere } from './geometry'
 
 /**
- * The shapes that describe what a light *does* — where it points, how far it
- * reaches, how wide it spreads. The points you can grab are drawn separately,
- * by `LightHandles`.
+ * What a light *does*: where it points, how far it reaches, how wide it
+ * spreads. The grabbable points are `LightHandles`.
+ *
+ * Built from the config rather than from the rendered three lights, so nothing
+ * has to be kept in sync and a light that is off still draws when selected.
  */
 
 /** Side of the square standing in for a directional light's emitting plane. */
 const PLATE_SIZE = 0.5
 /** Keeps a cone from collapsing when a light sits on its own target. */
 const MIN_LENGTH = 0.001
+/** drei's ring keeps its inner edge at half the outer radius. */
+const RING_INNER = 0.5
 
-/**
- * How strongly each kind of line reads before emphasis. `primary` is the shape
- * itself, `secondary` the beam out to the target, `range` a falloff radius —
- * always the biggest thing on screen, so it stays furthest back.
- */
+/** `range` is always the biggest thing on screen, so it stays furthest back. */
 const ROLE = { primary: 1, secondary: 0.6, range: 0.35 }
 
-/**
- * Only the selected light draws at full strength, the way Blender does it.
- * Everything else stays visible enough to find and read as a rig, without a
- * dozen helpers competing for attention the moment you turn `debug` on.
- *
- * There is no third level for a light that is off: it is not drawn at all.
- */
 const EMPHASIS = { selected: 1, idle: 0.28 }
 
 type Emphasis = keyof typeof EMPHASIS
@@ -48,11 +41,6 @@ function opacityOf(role: keyof typeof ROLE, emphasis: Emphasis): number {
   return ROLE[role] * EMPHASIS[emphasis]
 }
 
-/**
- * Built from the config rather than from the rendered three lights. Nothing
- * here reads the scene graph, so a helper never has to be kept in sync with a
- * light object, and a selected light draws whether or not it is switched on.
- */
 export function LightHelpers() {
   const drawn = useDrawnLights()
   const selectedId = useStudio((state) => state.selectedId)
@@ -77,8 +65,7 @@ interface HelperProps<T extends LightConfig = LightConfig> {
 
 function LightHelper({ light, emphasis }: HelperProps) {
   switch (light.type) {
-    // An ambient light has neither a position nor a direction, so there is
-    // nothing honest to draw for it. It is reachable from the panel instead.
+    // No position and no direction, so there is nothing honest to draw.
     case 'ambient':
       return null
 
@@ -103,8 +90,7 @@ function LightHelper({ light, emphasis }: HelperProps) {
 }
 
 function HemisphereHelper({ light, emphasis }: HelperProps<HemisphereLightConfig>) {
-  // `position` is the sky direction, not a location, so the line back to the
-  // origin reads as the sky-to-ground axis rather than as a beam.
+  // `position` is the sky direction, so this is the sky-to-ground axis.
   const axis = useMemo(() => wireLine(light.position, [0, 0, 0]), [light.position])
 
   return (
@@ -126,8 +112,7 @@ function DirectionalHelper({ light, emphasis }: HelperProps<DirectionalLightConf
 }
 
 function PointHelper({ light, emphasis }: HelperProps<PointLightConfig>) {
-  // `distance` of 0 means no cutoff, so there is no range to draw and the
-  // handle is the whole helper.
+  // `distance` of 0 means no cutoff, so there is no range to draw.
   const range = useMemo(
     () => (light.distance > 0 ? wireSphere(light.distance) : null),
     [light.distance],
@@ -143,8 +128,8 @@ function PointHelper({ light, emphasis }: HelperProps<PointLightConfig>) {
 }
 
 function SpotHelper({ light, emphasis }: HelperProps<SpotLightConfig>) {
-  // The cone ends at the cutoff distance when there is one, otherwise at the
-  // target, which is the only other length the setup gives us.
+  // The cutoff distance when there is one, otherwise the target: the only
+  // other length the setup gives us.
   const length = Math.max(
     light.distance > 0 ? light.distance : distanceBetween(light.position, light.target),
     MIN_LENGTH,
@@ -178,16 +163,8 @@ function RectAreaHelper({ light, emphasis }: HelperProps<RectAreaLightConfig>) {
 }
 
 /**
- * The only helper that draws something the scene does not otherwise contain.
- *
- * A lightformer is a mesh inside the environment's own little scene, so nothing
- * of it appears here — you would be dragging an invisible point and judging the
- * result from a reflection. The wireframe is its actual shape and size, in the
- * place it occupies, which is what makes it aimable at all. Turning the
- * environment on as a backdrop shows you the real thing behind it.
- *
- * `ring` is drawn as two outlines because that is what drei's is: a disc with
- * the middle half of it missing.
+ * The lightformer's mesh lives in the environment's own scene, so without this
+ * you would be dragging an invisible point and judging it from a reflection.
  */
 function LightformerHelper({ light, emphasis }: HelperProps<LightformerConfig>) {
   const { form, width, height } = light
@@ -206,9 +183,6 @@ function LightformerHelper({ light, emphasis }: HelperProps<LightformerConfig>) 
   )
 }
 
-/** drei's ring keeps its inner edge at half the outer radius. */
-const RING_INNER = 0.5
-
 function formGeometry(
   form: LightformerConfig['form'],
   width: number,
@@ -218,11 +192,11 @@ function formGeometry(
     case 'circle':
       return [wireEllipse(width, height)]
 
+    // drei's ring is a disc with the middle half missing.
     case 'ring':
       return [wireEllipse(width, height), wireEllipse(width * RING_INNER, height * RING_INNER)]
 
-    // drei scales a unit box, so the depth is whatever the third scale axis is
-    // — and the renderer passes 1, since the schema has no field for it.
+    // The schema has no depth, so the renderer passes 1 for the third axis.
     case 'box':
       return [wireBox(width, height, 1)]
 
@@ -231,7 +205,6 @@ function formGeometry(
   }
 }
 
-/** The line from a light to the point it aims at. */
 function Beam({
   from,
   to,
@@ -276,10 +249,7 @@ function Aimed({
   )
 }
 
-/**
- * Draws one geometry and takes ownership of it: whatever is passed in is
- * disposed on unmount, so callers only have to `useMemo` it.
- */
+/** Disposes the geometry it is given, so callers only have to `useMemo` it. */
 function Wire({
   geometry,
   color,
@@ -293,8 +263,7 @@ function Wire({
 
   return (
     <lineSegments geometry={geometry}>
-      {/* Grey mode paints the scene to show you the light on it. A wireframe is
-          not lit by anything and is the instrument you are reading it with. */}
+      {/* The instrument you read the light with, not something lit by it. */}
       <lineBasicMaterial
         allowOverride={false}
         color={color}

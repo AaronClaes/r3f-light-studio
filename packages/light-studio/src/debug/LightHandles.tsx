@@ -13,37 +13,16 @@ const HANDLE_SIZE = 0.015
 const CENTRE_RADIUS = 0.3
 /** The pick sphere covers the ring from any angle, with a little margin. */
 const PICK_SCALE = 1.3
-/** The handle being dragged grows, so you can tell it apart at a glance. */
 const SELECTED_SCALE = 1.25
 const SELECTED_COLOR = '#ffffff'
-/**
- * Handles stay findable even when their light's helper has receded. Only
- * source handles are ever idle — a target is drawn for the selected light and
- * for no one else — so in practice this is the unselected lights' ring.
- */
 const IDLE_OPACITY = 0.55
 
 /**
- * The grabbable points of the rig: one per light, plus one on the target of
- * the light you have selected. Clicking selects; clicking nothing deselects.
+ * One grabbable point per light, plus one on the selected light's target.
  *
- * Which points exist is derived from the schema rather than from a per-type
- * switch — a light has a handle for each vector field it actually declares.
- *
- * A light that is off, or muted by someone else's solo, has no handles: it is
- * not drawn at all, and the outliner is where you pick it up again.
- *
- * ## Why targets are only drawn for the selected light
- *
- * A target handle you have not selected is a redundant place to click: the
- * only useful half of the click is "select this light", which the light's own
- * handle and the outliner both already do. What it costs is real, though —
- * most rigs aim at the origin, so a dozen targets stack into one bright blob
- * there, and every one of them doubles a light's footprint on screen.
- *
- * Nothing is hidden by this. The beam still runs out to the target, so where
- * a light points is as readable as before; you just have to pick the light up
- * before you can move the far end of it.
+ * Targets are only drawn for the selected light: most rigs aim at the origin,
+ * so a dozen of them stack into one blob there, and the beam already shows
+ * where a light points.
  */
 export function LightHandles() {
   const lights = useDrawnLights()
@@ -52,16 +31,12 @@ export function LightHandles() {
 
   return (
     <>
-      {/*
-        One deselect target for the whole studio. r3f fires `onPointerMissed`
-        on every object a click did not hit, so putting it on each handle would
-        run it once per handle. This group has no geometry and so is never hit,
-        which means it receives exactly one miss per click.
-      */}
+      {/* One deselect target for the whole studio. r3f fires `onPointerMissed`
+          per object a click did not hit, and this group has no geometry, so it
+          gets one miss per click rather than one per handle. */}
       <group
         onPointerMissed={() => {
-          // A tap on the gizmo also arrives here as a miss. That click belongs
-          // to the gizmo, and must not clear the selection it is attached to.
+          // A tap on the gizmo arrives here as a miss too.
           if (store.getState().takeClick()) return
           store.getState().select(null)
         }}
@@ -90,8 +65,6 @@ interface HandleProps {
 function Handle({ id, field, point, color }: HandleProps) {
   const group = useRef<THREE.Group>(null)
   const store = useStudioStore()
-  // Both of a light's handles brighten when it is selected; only the one being
-  // dragged turns white and grows.
   const { lightSelected, dragged } = useStudio((state) => ({
     lightSelected: state.selectedId === id,
     dragged: state.selectedId === id && state.selectedField === field,
@@ -132,25 +105,16 @@ function Handle({ id, field, point, color }: HandleProps) {
         scale={PICK_SCALE}
       >
         <sphereGeometry args={[1, 12, 8]} />
-        {/* Not `visible={false}`, which would take it out of the raycast.
-            Writing neither colour nor depth renders nothing but stays pickable.
-
-            `allowOverride` is what keeps it that way: grey mode replaces every
-            material that will let it, and an invisible sphere replaced by an
-            opaque one is a grey ball parked in front of every light. */}
+        {/* Not `visible={false}`, which would leave the raycast. Writing
+            neither colour nor depth renders nothing and stays pickable, and
+            `allowOverride` keeps grey mode from making it an opaque ball. */}
         <meshBasicMaterial allowOverride={false} colorWrite={false} depthWrite={false} />
       </mesh>
     </group>
   )
 }
 
-/**
- * The glyph, which says what kind of point this is.
- *
- * A source is Blender's light gizmo — a dashed ring around a diamond. A target
- * is a bare reticle: no ring, so the two never read as the same thing even
- * side by side, and lighter on screen, which suits the lesser of the two.
- */
+/** A source is Blender's dashed ring around a diamond; a target is a bare reticle. */
 function marksFor(field: VectorField): THREE.BufferGeometry[] {
   if (field === 'target') return [wireCross(CENTRE_RADIUS, 1)]
   return [dashedCircle(1), wireDiamond(CENTRE_RADIUS)]
@@ -183,12 +147,7 @@ function Mark({
 /** Reused across every handle; `useFrame` callbacks never overlap. */
 const worldPosition = new THREE.Vector3()
 
-/**
- * Holds a handle at a constant size on screen and square to the camera, so the
- * ring reads as a ring from every angle instead of collapsing to an ellipse,
- * and stays grabbable whether you are up against a light or seeing the whole
- * rig at once.
- */
+/** Constant size on screen and square to the camera, so the ring stays a ring. */
 function useBillboard(ref: React.RefObject<THREE.Object3D | null>, fraction: number): void {
   useFrame(({ camera }) => {
     const object = ref.current

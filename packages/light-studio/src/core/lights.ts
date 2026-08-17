@@ -1,4 +1,4 @@
-import { LIGHT_DEFINITIONS, type LightConfig, type LightType } from './schema'
+import { LIGHT_DEFINITIONS, type LightConfig, type LightSetup, type LightType } from './schema'
 
 export function createLight<T extends LightType>(
   type: T,
@@ -11,6 +11,11 @@ export function createLight<T extends LightType>(
   } as Extract<LightConfig, { type: T }>
 }
 
+export function findLight(setup: LightSetup, id: string | null): LightConfig | undefined {
+  if (id === null) return undefined
+  return setup.lights.find((light) => light.id === id)
+}
+
 export function uniqueId(base: string, taken: Iterable<string>): string {
   const used = new Set(taken)
   if (!used.has(base)) return base
@@ -19,10 +24,7 @@ export function uniqueId(base: string, taken: Iterable<string>): string {
   return `${base}-${n}`
 }
 
-/**
- * Which lights actually reach the scene. Solo is an editor concept and beats
- * `enabled`; production passes no solo ids and gets the plain `enabled` filter.
- */
+/** Solo beats `enabled`. Production passes no solo ids. */
 export function visibleLights(
   lights: LightConfig[],
   soloIds: readonly string[] = [],

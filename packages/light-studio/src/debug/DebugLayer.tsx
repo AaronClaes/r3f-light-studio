@@ -24,25 +24,19 @@ import { findSaveTarget } from './save'
 import { DebugUI } from './ui/DebugUI'
 import { useWorkspaceKeys } from './workspaceKeys'
 
+/** Long enough to swallow a drag, short enough that a reload never loses one. */
+const WRITE_DELAY = 400
+
 interface DebugLayerProps {
   setup: LightSetup
   /** Hands the edited rig back on close, so it outlives the `debug` toggle. */
   onExit: (setup: LightSetup) => void
-  /** Shows and hides the editor. `null` binds nothing. */
   toggleKey: ToggleKey | null
-  /** Which target the dev-server plugin should write this rig to. */
   saveId: string
-  /**
-   * Whatever the app put in `<LightStudio.Environment>`. Passed straight
-   * through: it is the app's, so the editor neither draws it nor edits it.
-   */
   environmentContent: ReactNode
 }
 
-/**
- * Owns the store and renders from it. That is the only difference from the
- * production path so far — helpers, gizmos and the panel slot in here.
- */
+/** Owns the store and renders from it. Otherwise the production path. */
 export default function DebugLayer({
   setup,
   onExit,
@@ -50,37 +44,28 @@ export default function DebugLayer({
   saveId,
   environmentContent,
 }: DebugLayerProps) {
-  // Lazy initialiser, not useMemo: the store is created exactly once and must
-  // not re-derive from `setup`, which would discard in-progress edits.
+  // Lazy initialiser, not useMemo: re-deriving from `setup` would discard
+  // in-progress edits.
   const [store] = useState(() => {
     const created = createLightStudioStore(setup)
     // Seeded before anything can subscribe, so an editor that was open before
     // the reload is open on the first frame rather than blinking into place.
     if (readVisible(saveId)) created.setState({ visible: true })
-    // Null means nothing stored, and the store's own single `file` workspace
-    // holding this setup is already the right fresh start.
     const stored = readWorkspaces(saveId)
     if (stored) created.getState().loadWorkspaces(stored.workspaces, stored.active)
     return created
   })
 
-  // Written back on every change rather than on unload: a dev server reload is
-  // not always a clean teardown, and this is one boolean.
+  // On every change rather than on unload: a dev server reload is not always a
+  // clean teardown, and this is one boolean.
   useEffect(() => {
     return store.subscribe((state, previous) => {
       if (state.visible !== previous.visible) writeVisible(saveId, state.visible)
     })
   }, [store, saveId])
 
-  /**
-   * The workspaces, debounced.
-   *
-   * Unlike the visibility flag this cannot be written on every change: what you
-   * edit now belongs to the workspace you are in, so the trigger is every
-   * keystroke and every frame of a drag. Coalescing to one write after the
-   * movement stops keeps a slider scrub from serialising the whole rig sixty
-   * times a second, and a reload is never close enough behind an edit to notice.
-   */
+  // Debounced, unlike the flag above: the trigger is every keystroke and every
+  // frame of a drag.
   useEffect(() => {
     let timer: number | undefined
 
@@ -106,21 +91,16 @@ export default function DebugLayer({
     }
   }, [store, saveId])
 
-  // Bound here rather than up in LightStudio, because the store is what holds
-  // the answer and it does not exist until this chunk has loaded. Nothing is
-  // lost: there is no editor to show before then either.
+  // Bound here rather than in LightStudio, where the store does not exist yet.
   useToggleKey(toggleKey, () => store.getState().toggleVisible())
 
-  // Through the store rather than as a prop: the close button that shows this
-  // is in the other React root, which renders once and would hold on to
-  // whatever the first render handed it.
+  // Through the store rather than as a prop: the close button lives in the
+  // other React root, which renders once.
   const toggleHint = describeToggleKey(toggleKey)
   useEffect(() => {
     store.getState().setToggleHint(toggleHint)
   }, [store, toggleHint])
 
-  // Asked once, on mount: whether there is a dev-server plugin willing to
-  // write this rig, and where. The Save button exists only if there is.
   useEffect(() => {
     let current = true
     void findSaveTarget(saveId).then((target) => {
@@ -134,9 +114,8 @@ export default function DebugLayer({
   useEffect(() => {
     return () => {
       const state = store.getState()
-      // Untouched means there is nothing to hand back. It also keeps
-      // StrictMode's throwaway first mount from replacing the setup with a
-      // copy of itself, which would reload the store it just built.
+      // The `dirty` check also stops StrictMode's throwaway first mount from
+      // replacing the setup with a copy of itself.
       if (state.dirty) onExit(state.setup)
     }
   }, [store, onExit])
@@ -150,15 +129,10 @@ export default function DebugLayer({
       return
     }
 
-    // Our own write, coming back. Saving rewrites the file, Vite notices and
-    // pushes the JSON through the import, and this effect sees a new setup a
-    // moment after the one it already has. Reloading on that would clear the
-    // selection, the solo and the whole undo stack every time you hit save.
-    //
-    // Compared as the text that would be written rather than by identity,
-    // because the round trip through the file is not identity-preserving. A
-    // genuine outside edit differs and still loads; an outside edit that
-    // happens to match is a no-op worth skipping anyway.
+    // Our own write coming back: saving rewrites the file and Vite pushes it
+    // through the import. Reloading on that would clear the selection, solo and
+    // undo stack on every save. Compared as text, since the round trip is not
+    // identity-preserving.
     if (setupToJson(setup) === setupToJson(state.baseline)) return
 
     state.loadSetup(setup)
@@ -177,15 +151,12 @@ function StudioScene({ environmentContent }: { environmentContent: ReactNode }) 
   const forceBackground = useStudio((state) => state.forceBackground)
   const visible = useStudio((state) => state.visible)
 
-  // Here rather than in a component of their own: they are the things in the
-  // studio that are neither scene content nor panel, and this is the innermost
-  // place that can see the store.
   useHistoryKeys(visible)
   useLightKeys(visible)
   useWorkspaceKeys(visible)
 
-  // Created here, above both React roots, because the controls are registered
-  // from this tree and the panel that shows them is rendered in the other one.
+  // Created above both React roots: the controls are registered from this tree
+  // and the panel showing them is rendered in the other one.
   const levaStore = useCreateStore()
 
   return (
@@ -199,9 +170,7 @@ function StudioScene({ environmentContent }: { environmentContent: ReactNode }) 
         lights={lights}
       />
 
-      {/* Hidden, the scene is the production one: no wireframes, no grabbable
-          points, no gizmo. Unmounting them is safe — they hold nothing but
-          geometry, and the store they read from lives above this. */}
+      {/* Safe to unmount: they hold nothing but geometry. */}
       {visible ? (
         <>
           <GreyMode />
@@ -211,16 +180,10 @@ function StudioScene({ environmentContent }: { environmentContent: ReactNode }) 
         </>
       ) : null}
 
-      {/* Both render nothing into the scene: one registers leva controls, the
-          other mounts the editor's DOM in a React root of its own. Both stay
-          mounted while hidden — leva reclaims its panel into a floating root
-          of its own the moment the last one unmounts, which would put a panel
-          on screen at exactly the moment you asked for none. */}
+      {/* Both stay mounted while hidden, or leva reclaims its panel into a
+          floating root at exactly the moment you asked for none. */}
       <PropertiesPanel levaStore={levaStore} />
       <DebugUI levaStore={levaStore} />
     </>
   )
 }
-
-/** Long enough to swallow a drag, short enough that a reload never loses one. */
-const WRITE_DELAY = 400

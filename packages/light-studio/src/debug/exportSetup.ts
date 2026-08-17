@@ -1,13 +1,8 @@
+import { isRecord } from '../core/json'
 import type { LightSetup } from '../core/schema'
 import { serializeSetup } from '../core/serialize'
 
-/**
- * The rig exactly as it should sit on disk.
- *
- * Separate from the serialiser, which decides *what* is written, because this
- * decides how the file *looks* — and the dev-server writeback will have to
- * agree with the copy button about both.
- */
+/** How the file looks, where `serializeSetup` decides what is in it. */
 export function setupToJson(setup: LightSetup): string {
   return `${print(serializeSetup(setup), '')}\n`
 }
@@ -15,17 +10,9 @@ export function setupToJson(setup: LightSetup): string {
 const INDENT = '  '
 
 /**
- * `JSON.stringify(value, null, 2)`, except that a run of numbers stays on one
- * line.
- *
- * `[4, 6, 3]` is one value — a position — and the stock printer spreads it
- * over five. This file exists to be committed and read in diffs, so that turns
- * nudging a light into a three-line change and triples the length of the rig.
- * Positions, targets, colours and shadow frusta are all short number arrays,
- * so one rule covers every case the schema has.
- *
- * Two spaces and a trailing newline otherwise, which is what an editor or a
- * formatter would settle on anyway.
+ * `JSON.stringify(value, null, 2)`, except a run of numbers stays on one line.
+ * The stock printer spreads `[4, 6, 3]` over five, which turns nudging a light
+ * into a three-line diff.
  */
 function print(value: unknown, indent: string): string {
   if (Array.isArray(value)) {
@@ -40,8 +27,7 @@ function print(value: unknown, indent: string): string {
   }
 
   if (isRecord(value)) {
-    // A key the serialiser left undefined has no JSON form, and the stock
-    // printer drops it. Dropping it here too keeps the two in agreement.
+    // The stock printer drops undefined keys, so this agrees with it.
     const entries = Object.entries(value).filter(([, item]) => item !== undefined)
     if (entries.length === 0) return '{}'
 
@@ -55,19 +41,9 @@ function print(value: unknown, indent: string): string {
   return JSON.stringify(value) ?? 'null'
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
 /**
- * Three decimals, which at scene scale is a millimetre.
- *
- * A dragged gizmo hands the store the full float — `-6.654158442397424` — and
- * seventeen digits per axis is unreadable in a file you review by hand. Only
- * the numbers inside arrays go through this, which in this schema means
- * positions, targets and shadow frusta. Scalars are left exactly as they are:
- * an intensity of `0.0001` is a real value that rounding to three places would
- * flatten to zero.
+ * A millimetre at scene scale. Only numbers inside arrays go through this: an
+ * intensity of `0.0001` is a real value that rounding would flatten to zero.
  */
 function round(value: number): number {
   if (!Number.isFinite(value)) return value

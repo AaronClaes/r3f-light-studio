@@ -2,39 +2,31 @@ import { TransformControls } from '@react-three/drei'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
+import { findLight } from '../core/lights'
 import type { LightPatch, LightSetup, Vec3, VectorField } from '../core/schema'
-import type { StudioState } from '../core/store'
+import type { StudioState } from '../core/state'
 import { useKeepMaterial } from '../runtime/keepMaterial'
 import { useStudio, useStudioStore } from './context'
 
-/**
- * Drags the selected point.
- *
- * Translate only: the schema aims a light by moving a target, so a rotate ring
- * would be editing something the format has no field for. Point lights have no
- * meaningful rotation at all.
- */
+/** Translate only: the schema aims a light by moving a target, not by rotating it. */
 export function LightGizmo() {
   const store = useStudioStore()
   const selection = useStudio(selectDraggable)
 
-  // TransformControls needs a real node in the scene graph to attach to, and
-  // the store holds plain arrays. This object is the bridge between the two.
+  // TransformControls needs a real node to attach to; the store holds arrays.
   const proxy = useMemo(() => new THREE.Object3D(), [])
   const dragging = useRef(false)
 
   const { id, field } = selection ?? {}
 
-  // The gizmo's own materials come from three-stdlib, so they are marked from
-  // out here. Keyed on the selection because the whole thing mounts with it.
+  // three-stdlib builds the gizmo's materials, so they are marked from here.
   const arrows = useRef<THREE.Group>(null)
   useKeepMaterial(arrows, id)
 
   useEffect(() => {
     if (id === undefined || field === undefined) return
 
-    // While dragging, the gizmo owns the proxy — writing to it here would
-    // fight the drag. Every other change (undo, the panel) has to move it.
+    // While dragging the gizmo owns the proxy. Undo and the panel have to move it.
     const follow = (state: StudioState) => {
       if (dragging.current) return
       const point = pointOf(state.setup, id, field)
@@ -58,20 +50,19 @@ export function LightGizmo() {
     <>
       <primitive object={proxy} />
       {/* A group only so there is something to walk: drei mounts the controls
-          as a primitive, and the gizmo hangs off it as an ordinary child. */}
+          as a primitive, with the gizmo hanging off it as an ordinary child. */}
       <group ref={arrows}>
         <TransformControls
           mode="translate"
           object={proxy}
           onMouseDown={() => {
-            // One undo step per drag, not one per frame.
             dragging.current = true
             store.getState().beginTransaction()
           }}
           onMouseUp={() => {
             dragging.current = false
-            // A drag moves the pointer far enough that r3f never calls it a
-            // click, so there is nothing to claim. A tap does produce one.
+            // A drag moves too far for r3f to call it a click, so there is
+            // nothing to claim. A tap does produce one.
             const moved = store.getState().endTransaction()
             if (!moved) store.getState().claimClick()
           }}
@@ -83,11 +74,7 @@ export function LightGizmo() {
   )
 }
 
-/**
- * The selected handle, when it is one you can actually drag. Returns only
- * primitives so a re-render happens on selection changes and not on every
- * frame of a drag.
- */
+/** Primitives only, so a drag re-renders on selection changes and not per frame. */
 function selectDraggable(state: StudioState): { id: string; field: VectorField } | null {
   const { selectedId, selectedField } = state
   if (selectedId === null) return null
@@ -96,7 +83,7 @@ function selectDraggable(state: StudioState): { id: string; field: VectorField }
 }
 
 function pointOf(setup: LightSetup, id: string, field: VectorField): Vec3 | null {
-  const light = setup.lights.find((candidate) => candidate.id === id)
+  const light = findLight(setup, id)
   if (!light) return null
   if (field === 'target') return 'target' in light ? light.target : null
   return 'position' in light ? light.position : null

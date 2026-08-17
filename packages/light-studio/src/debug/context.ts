@@ -2,7 +2,8 @@ import { createContext, useContext } from 'react'
 import { useStore } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 
-import type { LightStudioStore, StudioState } from '../core/store'
+import type { StudioState } from '../core/state'
+import type { LightStudioStore } from '../core/store'
 
 const StoreContext = createContext<LightStudioStore | null>(null)
 
@@ -16,11 +17,7 @@ export function useStudioStore(): LightStudioStore {
   return store
 }
 
-/**
- * Always shallow-compares, so a selector that builds a new array each call
- * cannot cause an infinite render loop. Shallow equality on a primitive is
- * `Object.is`, so this is safe for scalar selectors too.
- */
+/** Always shallow, so a selector that builds a new object cannot loop forever. */
 export function useStudio<T>(selector: (state: StudioState) => T): T {
   return useStore(useStudioStore(), useShallow(selector))
 }
