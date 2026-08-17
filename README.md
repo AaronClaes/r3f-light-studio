@@ -638,7 +638,14 @@ the box inside it. Everything left in the folder is tuning you open on
 purpose.
 
 Leva renders it, filled into the slot rather than floating, with a store of its
-own so an app that already uses leva keeps its own panel where it put it.
+own so an app that already uses leva keeps its own panel where it put it. It is
+a **peer** dependency for the same reason drei is: leva keeps a global store and
+a floating root, so two copies means two panels, and having a store of our own
+is no help if the library holding it is not the app's. The range is `^0.10`
+rather than something generous — leva is pre-1.0, and the mirror leans on
+`useCreateStore` and `LevaPanel`, which is exactly the surface a `0.x` minor is
+free to move.
+
 Leva is a tenant here, not the architecture: `fields.ts` describes controls and
 imports nothing from it, which is the seam a different widget library would
 slot into.
