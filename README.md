@@ -22,7 +22,8 @@ export function Scene() {
 }
 ```
 
-Press **`F2`** to bring the editor up, and again to put it away.
+Press **`F2`** to bring the editor up, and again to put it away. It stays up
+across reloads until you close it.
 
 ## Status
 
@@ -126,6 +127,17 @@ every edit, your selection and even a half-typed rename are still there when
 you bring it back. That is the difference from turning `debug` off, which
 unmounts the chunk the store lives in and has to hand the rig back on the way
 out.
+
+**A reload is not a decision, so it does not close the editor.** Showing it
+writes a flag to `sessionStorage`, and a page that finds one comes up with the
+editor already open — seeded into the store before the first render, so there
+is no blink. Closing it clears the flag. It is `sessionStorage` rather than
+`localStorage` deliberately: this survives the dozen reloads an hour a dev
+server costs you and dies with the tab, so a page opened fresh still starts
+hidden and the rule above stays true for anyone who did not just close it. The
+flag is keyed by the `id` prop, so two rigs on one page remember themselves
+separately. Nothing else survives a reload — the edits are still in memory
+only, and that is what `Cmd+S` is for.
 
 The key is yours to pick:
 

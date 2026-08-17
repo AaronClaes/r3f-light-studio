@@ -20,6 +20,8 @@ export interface LightStudioProps {
    * It starts hidden: this arms the editor, `toggleKey` is what puts it on
    * screen. A rig you are not editing right now should not have a panel
    * sitting over your scene.
+   *
+   * Once shown, it stays shown across reloads for the life of the tab.
    */
   debug?: boolean
   /** Shows and hides the editor. Defaults to F2; `null` binds nothing. */
@@ -30,6 +32,9 @@ export interface LightStudioProps {
    * Only needed when `lightStudio()` in your Vite config was given an object
    * of several rigs — the key you gave it goes here. A plugin configured with
    * a single path needs nothing.
+   *
+   * It also names this rig for anything else kept per-rig, which so far means
+   * whether the editor was open when the tab last reloaded.
    */
   id?: string
   /** Set false to keep your own tone mapping and exposure. */

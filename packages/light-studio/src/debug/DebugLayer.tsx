@@ -13,6 +13,7 @@ import { useHistoryKeys } from './historyKeys'
 import { LightGizmo } from './LightGizmo'
 import { LightHandles } from './LightHandles'
 import { LightPanel } from './panel/LightPanel'
+import { readVisible, writeVisible } from './persistVisible'
 import { findSaveTarget } from './save'
 import { DebugUI } from './ui/DebugUI'
 
@@ -40,7 +41,21 @@ export default function DebugLayer({
 }: DebugLayerProps) {
   // Lazy initialiser, not useMemo: the store is created exactly once and must
   // not re-derive from `setup`, which would discard in-progress edits.
-  const [store] = useState(() => createLightStudioStore(setup))
+  const [store] = useState(() => {
+    const created = createLightStudioStore(setup)
+    // Seeded before anything can subscribe, so an editor that was open before
+    // the reload is open on the first frame rather than blinking into place.
+    if (readVisible(saveId)) created.setState({ visible: true })
+    return created
+  })
+
+  // Written back on every change rather than on unload: a dev server reload is
+  // not always a clean teardown, and this is one boolean.
+  useEffect(() => {
+    return store.subscribe((state, previous) => {
+      if (state.visible !== previous.visible) writeVisible(saveId, state.visible)
+    })
+  }, [store, saveId])
 
   // Bound here rather than up in LightStudio, because the store is what holds
   // the answer and it does not exist until this chunk has loaded. Nothing is
