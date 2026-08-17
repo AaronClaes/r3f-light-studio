@@ -50,7 +50,8 @@ your work out.
 - [x] Vite dev-server writeback — `Cmd+S` writes the file in place
 - [x] Add, duplicate and delete lights — the rig's shape, not just its values
 - [x] Environment — an HDRI, lightformers drawn into it, or both
-- [ ] Fit-shadow-camera, presets, A/B compare
+- [x] Workspaces — fork the rig, work in versions side by side, `file` stays put
+- [ ] Fit shadow camera to the scene bounds
 
 ## Layout
 
@@ -408,6 +409,93 @@ is only the keyboard reaching it.
 - **Z is matched by physical position _and_ produced character.** `code` alone
   misses Dvorak, where the OS routes `Cmd+Z` by character and the physical key
   is somewhere else entirely.
+
+## Workspaces
+
+A strip over the outliner. Until you have done anything it is just this:
+
+```
+file  +
+```
+
+**`file` is read-only, and it is the original.** Not a workspace holding your
+working copy of the file — the actual contents of the file, always, which makes
+it the one thing you can reliably get back to. It is the store's `baseline`
+rather than an entry in a list, so it needs no storage, cannot drift, cannot be
+deleted, and shows the new contents the moment you save.
+
+**Editing while you are on it forks.** Open the editor, drag a light, and a
+workspace appears with your edit in it:
+
+```
+file  1●  +
+```
+
+That is the whole point of forking rather than refusing: the first thing anyone
+does still works, and the file stays untouched. `+` does the same deliberately,
+from whatever is in front of you.
+
+**A workspace is somewhere you work, not a copy you set aside.** You are in one,
+and whatever you edit goes to the one you are in. Digits go straight to a chip —
+`0` is `file` — and only chips that exist are drawn.
+
+The first attempt at this was snapshots: nine numbered slots, an empty one _took_
+and a full one _restored_, `Shift+N` overwrote. Every one of those rules existed
+because the model was subtle, and a row of nine identical digits could not answer
+the first question anyone asked of it, which was what the numbers meant. Being
+_in_ a place needs no rules, and exactly one chip is ever lit.
+
+**Switching is never destructive, in either direction.** Leaving a workspace
+parks it — its setup _and its undo history_ — so coming back finds the work and
+the steps that got you there. `Cmd+Z` in one never rewinds another's, and there
+is nothing in `file` to lose.
+
+**`dirty` still means "differs from the file".** Where you are and how far you
+have drifted from disk are independent, `Cmd+S` still writes what you are looking
+at, and `Reset` still discards this workspace's edits — which is a different act
+from looking at the original, so both survive. Switching recomputes `dirty` by
+comparing what the exporter would emit, so a workspace that happens to hold
+exactly the file's contents reports clean rather than offering a Reset with
+nothing to reset.
+
+**What you give up** is that a workspace degrades as you keep working in it —
+there is no "workspace 1 as it was an hour ago". Forking is the answer, so the
+habit is _fork before you fiddle_, the same one branches already teach. Undo
+covers the rest, and `file` is always exactly where you left it.
+
+### Where they live
+
+`sessionStorage`, keyed by the same `id` the save target uses, so two rigs on a
+page keep their own. Same reasoning as the visibility flag: a reload is not a
+decision, and losing every version you had on the go to a refresh would make them
+no use for what they are for.
+
+**Dying with the tab is the other half of that, on purpose.** A workspace is
+somewhere you are working _now_. The way to keep one is to switch to it and save,
+which puts it in the file — so there is no third tier, and two looks that both
+need to ship are two JSON files and the `id` prop, which the plugin already
+supports. `localStorage` would buy permanence and pay for it in staleness: an
+unnamed, invisible copy from three weeks ago, taken against a rig that has since
+moved on.
+
+Neither the file nor any undo history is stored — the first is `baseline` and
+arrives through the `setup` prop anyway, and a reload has always emptied the undo
+stack.
+
+Two details follow from the live setup belonging to a workspace:
+
+- **The write is debounced.** Unlike the visibility flag, the trigger is every
+  keystroke and every frame of a drag, so writes coalesce to one 400ms after the
+  movement stops rather than serialising the whole rig sixty times a second.
+- **The active workspace's parked copy is deliberately stale**, because its real
+  state is the store's own. The persistence layer substitutes the live setup when
+  it serialises, rather than making the store write to itself on every change.
+
+Stored through `serializeSetup` and read back through `parseSetup`, so what lands
+in storage is the same defaults-stripped shape the file gets and a workspace left
+by an older build cannot put a malformed setup into the store. Parse warnings are
+dropped rather than logged: a console full of complaints about a workspace you
+have not opened yet is worse than one quietly missing a field.
 
 ## Debug helpers
 

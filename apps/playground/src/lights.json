@@ -3,6 +3,7 @@
   "meta": {
     "generator": "r3f-light-studio"
   },
+  "environment": {},
   "lights": [
     {
       "id": "ambient",

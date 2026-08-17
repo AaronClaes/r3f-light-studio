@@ -18,8 +18,10 @@ import { LightHandles } from './LightHandles'
 import { useLightKeys } from './lightKeys'
 import { PropertiesPanel } from './panel/PropertiesPanel'
 import { readVisible, writeVisible } from './persistVisible'
+import { readWorkspaces, writeWorkspaces } from './persistWorkspaces'
 import { findSaveTarget } from './save'
 import { DebugUI } from './ui/DebugUI'
+import { useWorkspaceKeys } from './workspaceKeys'
 
 interface DebugLayerProps {
   setup: LightSetup
@@ -54,6 +56,10 @@ export default function DebugLayer({
     // Seeded before anything can subscribe, so an editor that was open before
     // the reload is open on the first frame rather than blinking into place.
     if (readVisible(saveId)) created.setState({ visible: true })
+    // Null means nothing stored, and the store's own single `file` workspace
+    // holding this setup is already the right fresh start.
+    const stored = readWorkspaces(saveId)
+    if (stored) created.getState().loadWorkspaces(stored.workspaces, stored.active)
     return created
   })
 
@@ -63,6 +69,40 @@ export default function DebugLayer({
     return store.subscribe((state, previous) => {
       if (state.visible !== previous.visible) writeVisible(saveId, state.visible)
     })
+  }, [store, saveId])
+
+  /**
+   * The workspaces, debounced.
+   *
+   * Unlike the visibility flag this cannot be written on every change: what you
+   * edit now belongs to the workspace you are in, so the trigger is every
+   * keystroke and every frame of a drag. Coalescing to one write after the
+   * movement stops keeps a slider scrub from serialising the whole rig sixty
+   * times a second, and a reload is never close enough behind an edit to notice.
+   */
+  useEffect(() => {
+    let timer: number | undefined
+
+    const unsubscribe = store.subscribe((state, previous) => {
+      if (
+        state.setup === previous.setup &&
+        state.workspaces === previous.workspaces &&
+        state.activeWorkspace === previous.activeWorkspace
+      ) {
+        return
+      }
+
+      clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        const current = store.getState()
+        writeWorkspaces(saveId, current.workspaces, current.activeWorkspace, current.setup)
+      }, WRITE_DELAY)
+    })
+
+    return () => {
+      clearTimeout(timer)
+      unsubscribe()
+    }
   }, [store, saveId])
 
   // Bound here rather than up in LightStudio, because the store is what holds
@@ -141,6 +181,7 @@ function StudioScene({ environmentContent }: { environmentContent: ReactNode }) 
   // place that can see the store.
   useHistoryKeys(visible)
   useLightKeys(visible)
+  useWorkspaceKeys(visible)
 
   // Created here, above both React roots, because the controls are registered
   // from this tree and the panel that shows them is rendered in the other one.
@@ -178,3 +219,6 @@ function StudioScene({ environmentContent }: { environmentContent: ReactNode }) 
     </>
   )
 }
+
+/** Long enough to swallow a drag, short enough that a reload never loses one. */
+const WRITE_DELAY = 400

@@ -9,6 +9,7 @@ import { Footer } from './Footer'
 import { Outliner } from './Outliner'
 import { Panel } from './Panel'
 import { injectStyles } from './styles'
+import { Workspaces } from './Workspaces'
 
 /**
  * The editor's DOM: an outliner over a properties panel, docked right.
@@ -82,6 +83,8 @@ function StudioUI({ levaStore }: { levaStore: LevaStore }) {
 
   return (
     <>
+      <Workspaces />
+
       <Outliner />
 
       <Panel

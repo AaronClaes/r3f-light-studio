@@ -57,6 +57,88 @@ const CSS = `
   overflow: hidden;
 }
 
+/* The workspace strip. Its own bar rather than a panel: one row, no header, and
+   nothing in it to collapse.
+
+   Named ls-ws rather than ls-slot because the properties panel already owns
+   ls-slot as the box leva fills, and these rules would have resized it. */
+.ls-workspaces {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  padding: 4px;
+  background: var(--ls-bg);
+  border-radius: var(--ls-radius);
+  box-shadow: 0 0 9px 0 #00000088;
+}
+
+.ls-ws,
+.ls-ws-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--ls-text-faint);
+  border-radius: 3px;
+  background: var(--ls-bg-sunken);
+  color: var(--ls-text-dim);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.ls-ws:hover,
+.ls-ws-add:hover { background: var(--ls-bg-raised); color: var(--ls-text); }
+
+/* Exactly one is ever lit, and it means "you are here". Nothing to disambiguate
+   from, which the numbered-slot version could not manage. */
+.ls-ws[data-active='true'] {
+  background: var(--ls-accent);
+  border-color: var(--ls-accent);
+  color: var(--ls-text);
+}
+
+.ls-ws:focus-visible,
+.ls-ws-add:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: 1px; }
+
+/* Dashed and dimmer: it is the one chip that is not a place you can be. */
+.ls-ws-add { border-style: dashed; color: var(--ls-text-faint); }
+
+/* Set apart from the workspaces, because it is not one of them: read-only, and
+   the thing they are all versions of. */
+.ls-ws-file { margin-right: 3px; border-style: dotted; }
+
+/* Holds the delete button over the chip's top-right without taking a column of
+   its own, so the strip's spacing does not change as one appears. */
+.ls-ws-cell { position: relative; display: flex; }
+
+.ls-ws-clear {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: none;
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--ls-bg-raised);
+  color: var(--ls-text-dim);
+  font: inherit;
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* On hover of the cell, so it does not sit over the label until you are reaching
+   for it — and on focus, so the keyboard can get to it at all. */
+.ls-ws-cell:hover .ls-ws-clear,
+.ls-ws-clear:focus-visible { display: flex; align-items: center; justify-content: center; }
+.ls-ws-clear:hover { background: var(--ls-solo); color: #000; }
+
 .ls-head {
   display: flex;
   align-items: center;

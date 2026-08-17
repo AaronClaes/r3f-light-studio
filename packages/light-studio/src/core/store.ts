@@ -11,8 +11,83 @@ import {
   type LightType,
   type VectorField,
 } from './schema'
+import { serializeSetup } from './serialize'
 
 const HISTORY_LIMIT = 100
+
+/**
+ * A place to work, and everything the editor swaps to move you to it.
+ *
+ * The setup is *parked* state: for whichever workspace is active it is stale,
+ * because that one's live state is the store's own `setup`, `past` and `future`.
+ * `park` is what puts the live state back before you leave.
+ *
+ * History travels with the workspace so that `Cmd+Z` in one never rewinds
+ * another's work — and it is deliberately not persisted, matching a reload,
+ * which has always cleared the undo stack.
+ */
+export interface Workspace {
+  id: string
+  /** What the chip says. Also what a digit key looks for. */
+  label: string
+  setup: LightSetup
+  past: LightSetup[]
+  future: LightSetup[]
+}
+
+/**
+ * Writes the live state back into whichever workspace it belongs to.
+ *
+ * A no-op while you are on the file, because there is no entry for it: the file
+ * is `baseline`, which the store has always kept. That is what makes it
+ * read-only for free — it cannot drift, cannot be deleted, and shows the new
+ * contents the moment you save.
+ */
+function park(state: StudioState): Workspace[] {
+  if (state.activeWorkspace === null) return state.workspaces
+  return state.workspaces.map((workspace) =>
+    workspace.id === state.activeWorkspace
+      ? { ...workspace, setup: state.setup, past: state.past, future: state.future }
+      : workspace,
+  )
+}
+
+/**
+ * The next free number, rather than the count.
+ *
+ * Deleting workspace 1 out of `1 2` and adding another has to give 3, not a
+ * second 2 — the labels are what the digit keys address, so a duplicate would
+ * make one of them unreachable.
+ */
+function nextLabel(workspaces: Workspace[]): string {
+  const used = workspaces.map((workspace) => Number(workspace.label)).filter(Number.isFinite)
+  return String(Math.max(0, ...used) + 1)
+}
+
+/** A new workspace holding `setup`, appended to whatever is parked. */
+function forkWith(
+  state: StudioState,
+  setup: LightSetup,
+): { workspaces: Workspace[]; activeWorkspace: string } {
+  const label = nextLabel(state.workspaces)
+  const id = `w${label}`
+  return {
+    workspaces: [...park(state), { id, label, setup, past: [], future: [] }],
+    activeWorkspace: id,
+  }
+}
+
+/**
+ * Whether a setup would write the same file as another.
+ *
+ * Compared as what the exporter would emit, for the same reason `DebugLayer`
+ * does it that way: the round trip through the file is not identity-preserving,
+ * and two setups that serialise the same are the same as far as the file is
+ * concerned.
+ */
+function sameFile(a: LightSetup, b: LightSetup): boolean {
+  return JSON.stringify(serializeSetup(a)) === JSON.stringify(serializeSetup(b))
+}
 
 /** Selecting a light always starts on its own point, never on its target. */
 const NO_SELECTION = { selectedId: null, selectedField: 'position' } as const
@@ -75,6 +150,19 @@ export interface StudioState {
    * exist.
    */
   saveTarget: SaveTarget | null
+  /**
+   * The versions of the rig you have made, not counting the file.
+   *
+   * Places you work rather than copies you set aside: you are in one, and what
+   * you edit goes to the one you are in. A new one forks from whatever you are
+   * looking at, which is the only way to stop a look changing under you.
+   *
+   * Never serialised into the rig. Kept for the life of the tab, and the way to
+   * keep one for longer is to switch to it and save.
+   */
+  workspaces: Workspace[]
+  /** Id of the one you are in, or null while you are looking at the file. */
+  activeWorkspace: string | null
   dirty: boolean
   past: LightSetup[]
   future: LightSetup[]
@@ -125,6 +213,27 @@ export interface StudioState {
   /** Reads the claim and clears it. */
   takeClick: () => boolean
 
+  /**
+   * Fork a new workspace from whatever you are looking at, and go there.
+   *
+   * Returns its id. Forking rather than starting empty is the whole point: a new
+   * version of the rig in front of you, so the one in front of you stops
+   * changing. Editing while on the file does this for you.
+   */
+  addWorkspace: () => string
+  /**
+   * Go to a workspace, or to the file with null, parking what you are leaving.
+   *
+   * Not an undo step and not destructive in either direction — your work stays
+   * in the workspace you did it in, along with its history. There is nothing in
+   * the file to lose, which is what makes leaving it safe.
+   */
+  switchWorkspace: (id: string | null) => void
+  /** Delete one. Deleting the one you are in puts you back on the file. */
+  removeWorkspace: (id: string) => void
+  /** Replace the lot. For seeding from storage on mount. */
+  loadWorkspaces: (workspaces: Workspace[], activeId: string | null) => void
+
   undo: () => void
   redo: () => void
   /** Call after a successful save; the working copy becomes the new baseline. */
@@ -144,10 +253,17 @@ export function createLightStudioStore(initial: LightSetup) {
         const draft = structuredClone(state.setup)
         mutate(draft)
 
+        // Editing while looking at the file needs somewhere for the edit to go,
+        // and the file is not it. Forking here rather than refusing means the
+        // first thing anyone does — open the editor and drag a light — works,
+        // and the file stays the one thing you can always get back to.
+        const fork = state.activeWorkspace === null ? forkWith(state, draft) : null
+
         // Inside a transaction the history entry is pushed once, on end.
-        if (state.transaction) return { setup: draft, dirty: true }
+        if (state.transaction) return { ...fork, setup: draft, dirty: true }
 
         return {
+          ...fork,
           setup: draft,
           past: [...state.past, state.setup].slice(-HISTORY_LIMIT),
           future: [],
@@ -166,6 +282,9 @@ export function createLightStudioStore(initial: LightSetup) {
       visible: false,
       toggleHint: null,
       saveTarget: null,
+      workspaces: [],
+      // Looking at the file, which is where there is nothing to lose.
+      activeWorkspace: null,
       dirty: false,
       past: [],
       future: [],
@@ -278,6 +397,98 @@ export function createLightStudioStore(initial: LightSetup) {
         return true
       },
 
+      addWorkspace: () => {
+        const state = get()
+        const fork = forkWith(state, structuredClone(state.setup))
+
+        set({
+          ...fork,
+          // The setup does not change, so neither does `dirty`. Nothing moved;
+          // you are simply now editing it somewhere else.
+          past: [],
+          future: [],
+          transaction: null,
+        })
+
+        return fork.activeWorkspace
+      },
+
+      switchWorkspace: (id) =>
+        set((state) => {
+          if (id === state.activeWorkspace) return state
+
+          const workspaces = park(state)
+
+          // The file. It is `baseline` rather than an entry, and it carries no
+          // history of its own because there is nothing in it you did.
+          if (id === null) {
+            return {
+              workspaces,
+              activeWorkspace: null,
+              setup: structuredClone(state.baseline),
+              past: [],
+              future: [],
+              transaction: null,
+              dirty: false,
+            }
+          }
+
+          const target = workspaces.find((workspace) => workspace.id === id)
+          if (!target) return state
+
+          return {
+            workspaces,
+            activeWorkspace: id,
+            setup: structuredClone(target.setup),
+            past: target.past,
+            future: target.future,
+            transaction: null,
+            // Measured rather than assumed: a workspace can perfectly well hold
+            // exactly what is on disk, and claiming otherwise would offer a
+            // Reset with nothing to reset.
+            dirty: !sameFile(target.setup, state.baseline),
+            // Selection and solo survive on purpose. They are ways of looking at
+            // a rig rather than parts of one, and losing what you had picked
+            // every time you compared two versions of it would make comparing
+            // them useless.
+          }
+        }),
+
+      removeWorkspace: (id) =>
+        set((state) => {
+          if (!state.workspaces.some((workspace) => workspace.id === id)) return state
+
+          const kept = park(state).filter((workspace) => workspace.id !== id)
+          if (id !== state.activeWorkspace) return { workspaces: kept }
+
+          // Deleting where you are stands you back on the file, which is the one
+          // place guaranteed to exist.
+          return {
+            workspaces: kept,
+            activeWorkspace: null,
+            setup: structuredClone(state.baseline),
+            past: [],
+            future: [],
+            transaction: null,
+            dirty: false,
+          }
+        }),
+
+      loadWorkspaces: (workspaces, activeId) =>
+        set((state) => {
+          const active = workspaces.find((workspace) => workspace.id === activeId) ?? null
+
+          return {
+            workspaces,
+            activeWorkspace: active?.id ?? null,
+            setup: structuredClone(active?.setup ?? state.baseline),
+            past: [],
+            future: [],
+            transaction: null,
+            dirty: active ? !sameFile(active.setup, state.baseline) : false,
+          }
+        }),
+
       undo: () =>
         set((state) => {
           const previous = state.past.at(-1)
@@ -318,8 +529,17 @@ export function createLightStudioStore(initial: LightSetup) {
           transaction: null,
           ...NO_SELECTION,
           soloIds: [],
+          // A new file arrived, so you are put on it. Your workspaces are
+          // untouched: they are yours rather than the file's, and an edit from
+          // outside is no reason to throw away the version you forked ten
+          // minutes ago. Switching to one will correctly report it as drifted
+          // from the new file.
+          activeWorkspace: null,
         }),
 
+      // Back to what is on disk, in whichever workspace you are standing in.
+      // Not a way out of the workspace — switching does that, and switching
+      // never discards anything.
       reset: () =>
         set((state) => ({
           setup: structuredClone(state.baseline),
