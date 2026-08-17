@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 
+import { ENVIRONMENT_ID } from '../core/schema'
 import { isTyping, pressed } from '../runtime/keyboard'
 import { useStudioStore } from './context'
 
@@ -31,6 +32,11 @@ export function useLightKeys(active: boolean): void {
       // never happened.
       if (state.transaction) return
 
+      // Both keys act on a light, and the environment is the one thing you can
+      // select that is not one. There is only ever the one, so there is nothing
+      // to copy and nothing to remove.
+      const selected = state.selectedId === ENVIRONMENT_ID ? null : state.selectedId
+
       if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
         if (!pressed(event, 'KeyD', 'd')) return
         // Claimed whether or not anything is selected. While the editor is
@@ -38,7 +44,7 @@ export function useLightKeys(active: boolean): void {
         // the page instead on the one press that found no selection would be
         // the worse surprise.
         event.preventDefault()
-        if (state.selectedId) state.duplicateLight(state.selectedId)
+        if (selected) state.duplicateLight(selected)
         return
       }
 
@@ -46,10 +52,10 @@ export function useLightKeys(active: boolean): void {
       if (event.key !== 'Delete' && event.key !== 'Backspace') return
       // Nothing selected is nothing to delete, and Backspace still means
       // whatever it meant to the app around us.
-      if (!state.selectedId) return
+      if (!selected) return
 
       event.preventDefault()
-      state.removeLight(state.selectedId)
+      state.removeLight(selected)
     }
 
     window.addEventListener('keydown', onKeyDown)

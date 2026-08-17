@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 
-import { LIGHT_DEFINITIONS, LIGHT_TYPES, type LightType } from '../../core/schema'
+import { ENVIRONMENT_ID, LIGHT_DEFINITIONS, LIGHT_TYPES, type LightType } from '../../core/schema'
 import type { StudioState } from '../../core/store'
 import { useStudio, useStudioStore } from '../context'
-import { CloseIcon, DuplicateIcon, EyeIcon, PlusIcon, SoloIcon, TrashIcon } from './icons'
+import {
+  BackdropIcon,
+  CloseIcon,
+  DuplicateIcon,
+  EyeIcon,
+  PlusIcon,
+  SoloIcon,
+  TrashIcon,
+} from './icons'
 import { usePaint, type Paint, type PaintColumn } from './paint'
 import { Panel } from './Panel'
 import { MOD } from './platform'
@@ -67,11 +75,20 @@ export function Outliner() {
         </>
       }
     >
-      {ids.length === 0 ? (
-        <p className="ls-empty">No lights yet — add one with +.</p>
-      ) : (
-        <div className="ls-list">
-          {ids.map((id, index) => (
+      <div className="ls-list">
+        {/* Above the lights and always there. It is the one part of a rig you
+            cannot add or remove — every setup has an environment, most of them
+            switched off doing nothing — so it is a fixture rather than a row. */}
+        <EnvironmentRow
+          selected={selectedId === ENVIRONMENT_ID}
+          soloed={soloIds.includes(ENVIRONMENT_ID)}
+          soloing={soloing}
+        />
+
+        {ids.length === 0 ? (
+          <p className="ls-empty">No lights yet — add one with +.</p>
+        ) : (
+          ids.map((id, index) => (
             <LightRow
               key={id}
               id={id}
@@ -83,10 +100,82 @@ export function Outliner() {
               onRename={setRenaming}
               paint={paint}
             />
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </Panel>
+  )
+}
+
+/**
+ * The image-based light, as a row.
+ *
+ * Shaped like a light's but not one: nothing to rename, nothing to duplicate,
+ * nothing to delete. What it has instead is the backdrop toggle, in the slot a
+ * light spends on its type label — and permanently, not on hover, because a
+ * lightformer is invisible until you switch it on and a control you cannot see
+ * is no help finding that out.
+ */
+function EnvironmentRow({
+  selected,
+  soloed,
+  soloing,
+}: {
+  selected: boolean
+  soloed: boolean
+  soloing: boolean
+}) {
+  const store = useStudioStore()
+  const enabled = useStudio((state) => state.setup.environment.enabled)
+  const committed = useStudio((state) => state.setup.environment.background.enabled)
+  const forced = useStudio((state) => state.forceBackground)
+
+  return (
+    <div
+      className="ls-row ls-row-env"
+      data-lit={soloing ? soloed : enabled}
+      data-selected={selected}
+      onPointerDown={() => store.getState().select(ENVIRONMENT_ID)}
+    >
+      <span className="ls-swatch ls-swatch-env" />
+      <span className="ls-name">Environment</span>
+
+      {/* An override, and only an override. Whether the backdrop ships is
+          `background.enabled` in the properties panel; this is for looking at
+          a lightformer without committing anything. With the rig already
+          showing one there is nothing left for it to do, so it says so
+          instead of offering a switch that cannot switch anything off. */}
+      <RowAction
+        className="ls-backdrop"
+        disabled={committed}
+        on={committed || forced}
+        title={
+          committed
+            ? 'The rig shows the environment behind the scene — switch that off under backdrop, below.'
+            : 'Show the environment behind the scene while you work, so you can see what is in it. Never saved to the file.'
+        }
+        onPress={() => store.getState().setForceBackground(!forced)}
+      >
+        <BackdropIcon />
+      </RowAction>
+
+      <RowAction
+        on={enabled}
+        title={enabled ? 'Switch the environment off' : 'Switch the environment on'}
+        onPress={() => store.getState().updateEnvironment({ enabled: !enabled })}
+      >
+        <EyeIcon open={enabled} />
+      </RowAction>
+
+      <RowAction
+        className="ls-solo"
+        on={soloed}
+        title="Solo — show only the environment. Never saved to the file."
+        onPress={() => store.getState().setSolo(ENVIRONMENT_ID, !soloed)}
+      >
+        <SoloIcon on={soloed} />
+      </RowAction>
+    </div>
   )
 }
 
@@ -287,21 +376,29 @@ function LightRow({
 }
 
 /**
- * A row's duplicate or delete button.
+ * A button in a row that acts on that row alone.
  *
- * Acts on its own row's id, so it stops the press reaching the row: pressing
- * delete should not first select the light it is about to remove, and there is
- * no reason for duplicate to move your selection either — `duplicateLight`
- * selects the copy anyway.
+ * It stops the press reaching the row: pressing delete should not first select
+ * the light it is about to remove, and there is no reason for duplicate to
+ * move your selection either — `duplicateLight` selects the copy anyway.
+ *
+ * `on` makes it a toggle rather than an action, which is what the environment
+ * row's three are. Without it there is no pressed state to report and none to
+ * colour. The light rows' eye and solo are `Toggle` instead, which is the same
+ * button wired into the column-drag.
  */
 function RowAction({
-  className,
+  className = '',
   title,
+  on,
+  disabled = false,
   onPress,
   children,
 }: {
-  className: string
+  className?: string
   title: string
+  on?: boolean
+  disabled?: boolean
   onPress: () => void
   children: React.ReactNode
 }) {
@@ -309,8 +406,11 @@ function RowAction({
     <button
       type="button"
       className={`ls-toggle ${className}`}
+      data-on={on}
+      disabled={disabled}
       title={title}
       aria-label={title}
+      aria-pressed={on}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={onPress}
     >

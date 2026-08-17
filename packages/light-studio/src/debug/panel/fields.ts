@@ -25,7 +25,14 @@ export type FieldValue = number | string | boolean | readonly number[]
 /** A leva control, minus the plumbing the panel adds. */
 export type Control = Record<string, unknown>
 
-export interface Field {
+/**
+ * One control, and everything needed to keep it and the store in step.
+ *
+ * Generic in what it edits because the environment is not a light and needs
+ * exactly the same treatment. Both default to the light case, which is most of
+ * them.
+ */
+export interface Field<Subject = LightConfig, Patch = LightPatch> {
   /**
    * Unique across the whole panel, not just its folder. Leva maps a `set` call
    * by leaf key alone and ignores the folder the control sits in, so a
@@ -45,17 +52,21 @@ export interface Field {
    * spot has six, and switching between them would shuffle the panel.
    */
   order: number
-  /** The control, with its current value read off `light`. */
-  input: (light: LightConfig) => Control
-  read: (light: LightConfig) => FieldValue
-  /** The store update for a new value. Reads `light` for fields it merges into. */
-  patch: (light: LightConfig, value: FieldValue) => LightPatch
+  /** The control, with its current value read off `subject`. */
+  input: (subject: Subject) => Control
+  read: (subject: Subject) => FieldValue
+  /** The store update for a new value. Reads `subject` for fields it merges into. */
+  patch: (subject: Subject, value: FieldValue) => Patch
 }
 
 /**
  * How each number reads in the panel. Steps, and the floors that are physical
  * rather than three's — these are feel, not validation. The only hard ranges
  * are `LIGHT_DEFINITIONS.clamp`, and those win.
+ *
+ * One table per subject rather than one for the studio: these are keyed by
+ * leaf name, and a light's `height` in metres and a ground projection's in
+ * tens of metres want nothing like the same step.
  */
 const NUMBER_UI: Record<string, Control> = {
   intensity: { min: 0, step: 0.1 },
@@ -136,7 +147,11 @@ export function fieldsFor(type: LightType): Field[] {
       continue
     }
 
-    const control = controlFor(key, fallback, clamps[key])
+    const control = controlFor(key, fallback, {
+      ui: NUMBER_UI,
+      clamp: clamps[key],
+      options: definition.options?.[key],
+    })
     if (!control) continue
 
     // Grouped by shape, the same way the control itself is chosen. A
@@ -167,7 +182,7 @@ function shadowFields(fallback: ShadowConfig): Field[] {
       continue
     }
 
-    const control = controlFor(key, value)
+    const control = controlFor(key, value, { ui: NUMBER_UI })
     if (!control) continue
 
     // Whether a light casts at all sits above the folder rather than inside
@@ -213,28 +228,56 @@ function frustumFields(): Field[] {
   }))
 }
 
+export interface ControlContext {
+  /** Step sizes and menus, keyed by field name. See `NUMBER_UI`. */
+  ui: Record<string, Control>
+  clamp?: [number, number]
+  /** The complete set of values the field may hold, which makes it a menu. */
+  options?: readonly string[]
+}
+
 /**
  * Picks a control from the shape of the field's default. Returns null for a
  * shape with no control, so a field added to the schema without one is left
  * out of the panel rather than crashing it.
  */
-function controlFor(key: string, fallback: unknown, clamp?: [number, number]): Control | null {
-  if (typeof fallback === 'boolean' || typeof fallback === 'string') return {}
-
-  if (typeof fallback === 'number') {
-    const range = clamp ? { min: clamp[0], max: clamp[1] } : {}
-    return { ...NUMBER_UI[key], ...range }
+export function controlFor(
+  key: string,
+  fallback: unknown,
+  context: ControlContext,
+): Control | null {
+  if (typeof fallback === 'string') {
+    // Colours are strings too, and leva recognises those by their value, so a
+    // field with no fixed set of values needs nothing here.
+    return context.options ? menuFor(context.options) : {}
   }
 
-  // Colours are strings, and leva recognises them by their value, so they
-  // need nothing here.
-  if (isVector(fallback)) return { ...VECTOR_UI }
+  if (typeof fallback === 'boolean') return {}
+
+  if (typeof fallback === 'number') {
+    const range = context.clamp ? { min: context.clamp[0], max: context.clamp[1] } : {}
+    return { ...context.ui[key], ...range }
+  }
+
+  // A vector reads from the same table as a number does, so a rotation in
+  // radians can ask for a finer step than a position in metres.
+  if (isVector(fallback)) return { ...VECTOR_UI, ...context.ui[key] }
 
   return null
 }
 
+/**
+ * Leva reads a record of options as label to value, which is the only form
+ * that can show the empty string as something other than a blank row.
+ */
+function menuFor(allowed: readonly string[]): Control {
+  return {
+    options: Object.fromEntries(allowed.map((value) => [value === '' ? 'none' : value, value])),
+  }
+}
+
 /** A position or a target: the three-component fields the gizmo can move. */
-function isVector(fallback: unknown): boolean {
+export function isVector(fallback: unknown): boolean {
   return Array.isArray(fallback) && fallback.length === 3
 }
 
@@ -243,11 +286,11 @@ function isVector(fallback: unknown): boolean {
  * cannot index them, and a patch built from one cannot be narrowed back to a
  * member. Both casts are contained here and in the `patch` builders above.
  */
-function propertyOf(light: LightConfig, key: string): unknown {
-  return (light as unknown as Record<string, unknown>)[key]
+export function propertyOf(subject: object, key: string): unknown {
+  return (subject as Record<string, unknown>)[key]
 }
 
-function entriesOf(record: object): [string, unknown][] {
+export function entriesOf(record: object): [string, unknown][] {
   return Object.entries(record)
 }
 

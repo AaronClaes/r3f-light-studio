@@ -2,7 +2,15 @@ import { createStore } from 'zustand/vanilla'
 
 import { createLight, uniqueId, visibleLights } from './lights'
 import type { SaveTarget } from './save'
-import type { LightConfig, LightPatch, LightSetup, LightType, VectorField } from './schema'
+import {
+  ENVIRONMENT_ID,
+  type EnvironmentConfig,
+  type LightConfig,
+  type LightPatch,
+  type LightSetup,
+  type LightType,
+  type VectorField,
+} from './schema'
 
 const HISTORY_LIMIT = 100
 
@@ -14,7 +22,8 @@ function findLight(setup: LightSetup, id: string): LightConfig | undefined {
 }
 
 function takenIds(setup: LightSetup): string[] {
-  return setup.lights.map((light) => light.id)
+  // The environment answers to an id as well, so nothing else may take it.
+  return [ENVIRONMENT_ID, ...setup.lights.map((light) => light.id)]
 }
 
 export interface StudioState {
@@ -22,11 +31,22 @@ export interface StudioState {
   setup: LightSetup
   /** Last state that matches what is on disk. `reset()` returns here. */
   baseline: LightSetup
+  /** A light's id, or `ENVIRONMENT_ID`. */
   selectedId: string | null
   /** Which of the selected light's points is being edited. */
   selectedField: VectorField
-  /** Non-empty means "show only these". Never serialised. */
+  /** Non-empty means "show only these". May hold `ENVIRONMENT_ID`. Never serialised. */
   soloIds: string[]
+  /**
+   * Shows the environment behind the scene whatever the rig says.
+   *
+   * An override, not the setting: `environment.background.enabled` is a real
+   * field you can commit. This exists because turning the backdrop on to *look*
+   * at a lightformer — which is otherwise invisible outside reflections — and
+   * turning it on to *ship* it are different intentions, and only one of them
+   * should dirty the file. Editor state, like solo. Never serialised.
+   */
+  forceBackground: boolean
   /**
    * Whether the editor is on screen.
    *
@@ -72,6 +92,7 @@ export interface StudioState {
    */
   setSolo: (id: string, on: boolean) => void
   clearSolo: () => void
+  setForceBackground: (next: boolean) => void
 
   setVisible: (next: boolean) => void
   toggleVisible: () => void
@@ -79,6 +100,7 @@ export interface StudioState {
   setSaveTarget: (target: SaveTarget | null) => void
 
   updateLight: (id: string, patch: LightPatch) => void
+  updateEnvironment: (patch: Partial<EnvironmentConfig>) => void
   addLight: (type: LightType) => string
   removeLight: (id: string) => void
   duplicateLight: (id: string) => string | null
@@ -138,6 +160,7 @@ export function createLightStudioStore(initial: LightSetup) {
       baseline: structuredClone(initial),
       ...NO_SELECTION,
       soloIds: [],
+      forceBackground: false,
       // Armed is not the same as shown: the editor exists from the moment
       // `debug` is on, and the toggle key is what puts it on screen.
       visible: false,
@@ -162,6 +185,8 @@ export function createLightStudioStore(initial: LightSetup) {
 
       clearSolo: () => set({ soloIds: [] }),
 
+      setForceBackground: (next) => set({ forceBackground: next }),
+
       setVisible: (next) => set({ visible: next }),
       toggleVisible: () => set((state) => ({ visible: !state.visible })),
       setToggleHint: (hint) => set({ toggleHint: hint }),
@@ -173,16 +198,29 @@ export function createLightStudioStore(initial: LightSetup) {
           if (light) Object.assign(light, patch)
         }),
 
+      updateEnvironment: (patch) =>
+        commit((draft) => {
+          Object.assign(draft.environment, patch)
+        }),
+
       addLight: (type) => {
         const id = uniqueId(type, takenIds(get().setup))
         commit((draft) => {
           draft.lights.push(createLight(type, id))
+          // A lightformer is drawn into the environment and nowhere else, so
+          // adding one to a switched-off environment would add something that
+          // cannot be seen. Same edit, same undo step.
+          if (type === 'lightformer') draft.environment.enabled = true
         })
         set({ selectedId: id, selectedField: 'position' })
         return id
       },
 
       removeLight: (id) => {
+        // An id that matches nothing would otherwise commit an identical setup
+        // — a dirty flag and an undo step for a change that did not happen.
+        if (!findLight(get().setup, id)) return
+
         commit((draft) => {
           draft.lights = draft.lights.filter((light) => light.id !== id)
         })
@@ -295,4 +333,19 @@ export function createLightStudioStore(initial: LightSetup) {
 
 export function selectRenderableLights(state: StudioState): LightConfig[] {
   return visibleLights(state.setup.lights, state.soloIds)
+}
+
+/**
+ * The environment, or null when it should not reach the scene.
+ *
+ * The same rule `visibleLights` applies, said for the one thing that is not in
+ * the array: solo beats `enabled`, and soloing anything at all is a request to
+ * see that and nothing else — including the sky.
+ */
+export function selectRenderableEnvironment(state: StudioState): EnvironmentConfig | null {
+  const { environment } = state.setup
+  if (state.soloIds.length > 0) {
+    return state.soloIds.includes(ENVIRONMENT_ID) ? environment : null
+  }
+  return environment.enabled ? environment : null
 }

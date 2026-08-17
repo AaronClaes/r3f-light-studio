@@ -2,7 +2,7 @@ import { LevaPanel, type useCreateStore } from 'leva'
 import { useEffect, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 
-import { LIGHT_DEFINITIONS, type LightType } from '../../core/schema'
+import { ENVIRONMENT_ID, LIGHT_DEFINITIONS } from '../../core/schema'
 import type { StudioState } from '../../core/store'
 import { LightStudioStoreProvider, useStudio, useStudioStore } from '../context'
 import { Footer } from './Footer'
@@ -85,12 +85,8 @@ function StudioUI({ levaStore }: { levaStore: LevaStore }) {
       <Outliner />
 
       <Panel
-        title={selected ? selected.name || selected.id : 'Light'}
-        aside={
-          selected ? (
-            <span className="ls-type">{LIGHT_DEFINITIONS[selected.type].label}</span>
-          ) : null
-        }
+        title={selected?.title ?? 'Light'}
+        aside={selected?.label ? <span className="ls-type">{selected.label}</span> : null}
       >
         {selected ? null : <p className="ls-empty">Select a light to edit it.</p>}
 
@@ -106,7 +102,15 @@ function StudioUI({ levaStore }: { levaStore: LevaStore }) {
   )
 }
 
-function selectSelected(state: StudioState): { id: string; name: string; type: LightType } | null {
+/**
+ * What to put in the properties header: what you selected, and what kind of
+ * thing it is. The environment has no second half — "Environment" twice is
+ * worse than once.
+ */
+function selectSelected(state: StudioState): { title: string; label: string | null } | null {
+  if (state.selectedId === ENVIRONMENT_ID) return { title: 'Environment', label: null }
+
   const light = state.setup.lights.find((candidate) => candidate.id === state.selectedId)
-  return light ? { id: light.id, name: light.name, type: light.type } : null
+  if (!light) return null
+  return { title: light.name || light.id, label: LIGHT_DEFINITIONS[light.type].label }
 }

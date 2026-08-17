@@ -1,7 +1,11 @@
 import { uniqueId } from './lights'
 import {
+  ENVIRONMENT_DEFAULTS,
+  ENVIRONMENT_ID,
+  ENVIRONMENT_OPTIONS,
   LIGHT_DEFINITIONS,
   SCHEMA_VERSION,
+  type EnvironmentConfig,
   type LightConfig,
   type LightSetup,
   type LightType,
@@ -74,6 +78,32 @@ function coerceField(key: string, value: unknown, fallback: unknown): unknown {
   return fallback
 }
 
+/**
+ * Puts a string field back to its default when it holds something outside the
+ * set the schema allows.
+ *
+ * Runs after `coerceField`, which has already guaranteed a string — so a value
+ * that fails here was spelled out on purpose and is worth a word, unlike a
+ * missing field that quietly took its default.
+ */
+function applyOptions(
+  target: UnknownRecord,
+  options: Record<string, readonly string[]>,
+  defaults: UnknownRecord,
+  where: string,
+  issues: string[],
+): void {
+  for (const [key, allowed] of Object.entries(options)) {
+    const value = target[key]
+    if (typeof value === 'string' && allowed.includes(value)) continue
+
+    issues.push(
+      `${where}: ${JSON.stringify(value)} is not a ${key} this build knows — using ${JSON.stringify(defaults[key])}.`,
+    )
+    target[key] = defaults[key]
+  }
+}
+
 function isLightType(value: unknown): value is LightType {
   return typeof value === 'string' && value in LIGHT_DEFINITIONS
 }
@@ -105,7 +135,70 @@ function parseLight(raw: UnknownRecord, index: number, issues: string[]): LightC
     if (isFiniteNumber(value)) light[key] = Math.min(max, Math.max(min, value))
   }
 
+  if (definition.options) {
+    applyOptions(light, definition.options, definition.defaults, `lights[${index}]`, issues)
+  }
+
   return light as LightConfig
+}
+
+/** Absent is the common case and means every default, not "no environment". */
+function parseEnvironment(raw: unknown, issues: string[]): EnvironmentConfig {
+  const source = isRecord(raw) ? raw : {}
+  const out: UnknownRecord = {}
+
+  for (const [key, fallback] of Object.entries(ENVIRONMENT_DEFAULTS)) {
+    out[key] = coerceField(key, source[key], fallback)
+  }
+
+  applyOptions(
+    out,
+    ENVIRONMENT_OPTIONS,
+    ENVIRONMENT_DEFAULTS as unknown as UnknownRecord,
+    'environment',
+    issues,
+  )
+
+  return out as unknown as EnvironmentConfig
+}
+
+/**
+ * The combinations that parse cleanly and still do not do what they look like.
+ *
+ * All of these are legal files. None is worth refusing to load over, and every
+ * one of them is worth a line in the console before you spend ten minutes
+ * wondering where your lightformers went.
+ */
+function checkEnvironment(
+  environment: EnvironmentConfig,
+  lights: LightConfig[],
+  issues: string[],
+): void {
+  const lightformers = lights.filter((light) => light.type === 'lightformer').length
+
+  // The dome is the environment image, wrapped around the horizon. Without one
+  // there is nothing to wrap, and drei's loader has no file to ask for.
+  if (environment.ground.enabled && environment.preset === '' && environment.files === '') {
+    issues.push(
+      'Ground projection has nothing to project: it needs the environment to have a `preset` or `files`.',
+    )
+  }
+
+  if (lightformers === 0) return
+
+  const source = `${lightformers} lightformer${lightformers === 1 ? '' : 's'}`
+
+  // drei's <Environment> picks one branch from the props it was given, and
+  // `ground` is first — it renders the projected dome and drops the children.
+  if (environment.ground.enabled) {
+    issues.push(
+      `Ground projection replaces ${source}: drei's <Environment> renders one or the other. Turn the environment's ground off to see them.`,
+    )
+  }
+
+  if (!environment.enabled) {
+    issues.push(`The environment is switched off, so ${source} will not light anything.`)
+  }
 }
 
 /**
@@ -117,7 +210,11 @@ export function parseSetup(input: unknown): ParseResult {
 
   if (!isRecord(input)) {
     return {
-      setup: { version: SCHEMA_VERSION, lights: [] },
+      setup: {
+        version: SCHEMA_VERSION,
+        environment: structuredClone(ENVIRONMENT_DEFAULTS),
+        lights: [],
+      },
       issues: ['Setup must be an object.'],
     }
   }
@@ -145,7 +242,9 @@ export function parseSetup(input: unknown): ParseResult {
   const rawLights = Array.isArray(input.lights) ? input.lights : []
 
   const lights: LightConfig[] = []
-  const seen = new Set<string>()
+  // Seeded with the environment's, which the outliner and the solo list both
+  // address a light by. Taken, so `uniqueId` moves a light out of the way.
+  const seen = new Set<string>([ENVIRONMENT_ID])
 
   for (const [index, raw] of rawLights.entries()) {
     if (!isRecord(raw)) {
@@ -159,7 +258,9 @@ export function parseSetup(input: unknown): ParseResult {
     const id = uniqueId(light.id, seen)
     if (id !== light.id) {
       issues.push(
-        `Duplicate light id ${JSON.stringify(light.id)} — renamed to ${JSON.stringify(id)}.`,
+        light.id === ENVIRONMENT_ID
+          ? `lights[${index}]: ${JSON.stringify(ENVIRONMENT_ID)} is reserved for the environment — renamed to ${JSON.stringify(id)}.`
+          : `Duplicate light id ${JSON.stringify(light.id)} — renamed to ${JSON.stringify(id)}.`,
       )
       light.id = id
     }
@@ -167,10 +268,14 @@ export function parseSetup(input: unknown): ParseResult {
     lights.push(light)
   }
 
+  const environment = parseEnvironment(input.environment, issues)
+  checkEnvironment(environment, lights, issues)
+
   return {
     setup: {
       version: SCHEMA_VERSION,
       ...(isRecord(input.meta) ? { meta: input.meta as LightSetup['meta'] } : {}),
+      environment,
       lights,
     },
     issues,

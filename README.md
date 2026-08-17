@@ -1,8 +1,9 @@
 # r3f-light-studio
 
 A `<LightStudio />` component for react-three-fiber. One JSON file describes your
-whole lighting rig; the component renders it in production and, with `debug`,
-turns into an editor for it.
+whole lighting rig — lamps, an environment, and the lightformers drawn into it
+— and the component renders it in production and, with `debug`, turns into an
+editor for it.
 
 Scope is deliberately narrow: **only the lights you pass in**. Not a scene
 editor (that's [Triplex](https://triplex.dev)), not an animation tool (that's
@@ -48,6 +49,7 @@ your work out.
 - [x] Copy the rig back out as JSON, formatted for the file it came from
 - [x] Vite dev-server writeback — `Cmd+S` writes the file in place
 - [x] Add, duplicate and delete lights — the rig's shape, not just its values
+- [x] Environment — an HDRI, lightformers drawn into it, or both
 - [ ] Fit-shadow-camera, presets, A/B compare
 
 ## Layout
@@ -113,6 +115,10 @@ An `Object3D`-format export is a possible v2 feature, as a one-way adapter.
   — see below.
 - **Solo is not in the schema.** It's a way of looking at a rig, not a property
   of one, so it lives in the store and never serialises.
+- **A lightformer is a light type, the environment is not.** Lightformers sit
+  in `lights` like everything else — same id, same colour, same position and
+  target, same gizmo. `environment` is a single top-level block, because there
+  is exactly one of it and it has nowhere to be.
 - Defaults are omitted on write. `parseSetup` fills them back in and never
   throws — malformed input yields warnings, not a black scene.
 
@@ -135,6 +141,128 @@ worse than one that has no opinion:
 
 A file that still has a `renderer` block parses fine and warns once, saying
 where the setting went. It is dropped on the next save.
+
+## The environment
+
+A rig is not only lamps. Most of what makes a render look real is what the
+scene can see in every direction, and that is a separate block:
+
+```json
+{
+  "environment": {
+    "preset": "city",
+    "intensity": 0.4
+  },
+  "lights": [
+    {
+      "id": "softbox",
+      "type": "lightformer",
+      "color": "#eaf2ff",
+      "intensity": 3,
+      "position": [0, 3.5, 3],
+      "target": [0, 1, 0],
+      "width": 5,
+      "height": 3
+    }
+  ]
+}
+```
+
+Three sources, and they layer. `preset` is one of drei's ten hosted HDRIs,
+`files` is a path to your own `.hdr` or `.exr`, and a **lightformer** is a
+shape drawn into the environment on top of whichever of those you used. That
+last one is the reason this exists: a lightformer is what a studio softbox
+actually is — a big soft emitter you see in the reflections — and a `rectArea`
+light only approximates it.
+
+`intensity` and `rotation` are `scene.environmentIntensity` and
+`scene.environmentRotation` — how much the environment lights, and which way it
+faces. `resolution` is the cube map the lightformers are drawn into; higher is a
+sharper reflection and a slower editor. Whether any of it is _visible_ is the
+separate `background` block below.
+
+### A lightformer is a light
+
+It goes in `lights` with everything else, and gets everything else for free:
+the outliner row, the eye and the solo, rename, `Cmd+D`, `Delete`, the
+properties panel, the drag handles and the gizmo. `LightRenderer` pulls them
+out of the array at the last moment, because drei needs them as children of
+`<Environment>` rather than as nodes in your scene.
+
+It has one field no other light has — `form`, one of `rect`, `circle`, `ring`
+or `box` — and its `width` and `height` are the same two numbers a `rectArea`
+light takes.
+
+### The backdrop
+
+An environment can also be the thing you see, not only the thing that lights:
+
+```json
+"background": { "enabled": true, "blur": 0.4, "intensity": 1, "rotation": [0, 0, 0] }
+```
+
+which is `scene.background` plus `backgroundBlurriness`, `backgroundIntensity`
+and `backgroundRotation`. This is the one place the rig writes something outside
+the lights, and unlike tone mapping it earns it: without it there is no way to
+ship a rig's environment as a backdrop. An app would have to name the same
+`preset` a second time in its own `<Environment background="only" />`, which
+silently stops matching the moment you change it here — and for a rig built out
+of lightformers it is not merely duplicated but impossible, because the app
+cannot reproduce the cube map they are drawn into.
+
+The four are only sent to three while `enabled`. A rig that is purely lighting
+writes none of them, rather than putting a `backgroundBlurriness: 0` over a
+background the app set for itself. (drei still snapshots and restores those
+values around its own effects, so this is "the rig does not write them", not a
+guarantee that nothing else will.)
+
+### Seeing what you are aiming
+
+A lightformer is only ever visible in reflections, so the editor draws its real
+shape and size as a wireframe in the scene: a rectangle, an ellipse, a ring of
+two, a box. That is what the gizmo attaches to, and it is there whether the
+environment is on or not.
+
+Next to the environment's eye and solo there is a third toggle that puts the
+environment behind the scene. It is **an override, not the setting** — whether
+the backdrop ships is `background.enabled` above. This exists because turning a
+backdrop on to _look_ at a lightformer and turning it on to _keep_ it are
+different intentions, and only one of them should dirty the file. It is editor
+state like solo: never written, and it goes away with the studio. Once the rig
+shows a backdrop of its own the button has nothing left to do, so it says so
+rather than offering a switch that cannot switch anything off.
+
+### Ground projection replaces the lightformers
+
+`ground` wraps the environment image around the horizon so your floor reflects
+it. drei's `<Environment>` is four components behind one name and picks between
+them by which props it was given, with `ground` first — so with it on, the
+children are dropped and your lightformers do nothing. Both stay in the schema
+and `parseSetup` says so out loud rather than leaving you to find out:
+
+```
+[LightStudio] Ground projection replaces 1 lightformer: drei's <Environment>
+renders one or the other. Turn the environment's ground off to see them.
+```
+
+It also needs an image to project, and warns when there is a ground with no
+`preset` and no `files`.
+
+### What this costs
+
+`runtime/EnvironmentRig.tsx` is the only file on the production path that
+imports drei, and through drei, `three-stdlib`. Everything else in `runtime/`
+builds three objects r3f already knows about. drei is a **peer** dependency
+rather than a plain one — nearly every app using this has it already, and two
+copies would mean two environment-texture caches.
+
+An environment with no preset, no files and no lightformers renders nothing at
+all, and strips to nothing on save, so a rig that never asked for one has no
+`environment` key in its file. The import is still in the bundle; if that
+matters, `EnvironmentRig` is one file and one `lazy()` away from not being.
+
+Editing is cheap: drei's `frames` stays at its default of `1`, so the cube map
+is re-rendered once per change and not at all while you are idle.
 
 ## Arming it, and showing it
 
@@ -405,6 +533,12 @@ stroke has to be able to repeat a value over a row without flipping it back.
 
 It is also how you reach an ambient light. They have no position, so no handle,
 so before this the only way to select one was a dropdown.
+
+**The environment sits above the lights**, always, as a fixture rather than a
+row: you cannot add or remove it, only switch it on. It has an eye and a solo
+like any light, plus the backdrop override in the slot a light spends on its
+type label — permanently, not on hover, because a lightformer is invisible until
+you switch that on and a control you cannot see is no help discovering it.
 
 #### Changing the rig, not just its values
 

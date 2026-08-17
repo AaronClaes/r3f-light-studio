@@ -1,75 +1,68 @@
 import { folder, useControls, type useCreateStore } from 'leva'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
-import type { LightConfig, LightSetup, LightType } from '../../core/schema'
-import type { StudioState } from '../../core/store'
-import { useStudio, useStudioStore } from '../context'
-import { fieldsFor, type Control, type Field, type FieldValue } from './fields'
+import type { LightSetup } from '../../core/schema'
+import { useStudioStore } from '../context'
+import type { Control, Field, FieldValue } from './fields'
 
 /**
- * Numeric editing for the selected light.
+ * Keeps a set of leva controls and the studio store in step, in both
+ * directions.
  *
  * The store is the source of truth and leva mirrors it: every control writes
  * through a store action, and a store subscription pushes values back. That is
  * the only arrangement where the panel, the gizmo and undo/redo agree — drag a
  * handle and the numbers move, hit undo and both move back.
  *
- * Which light, what it is called and whether it is on belong to the outliner.
- * This is only the lighting.
- *
- * Registers into a store of its own rather than leva's global one, so an app
- * that already uses leva keeps its own panel where it put it.
+ * Generic in what it is editing, because a light and the environment need the
+ * identical treatment and only differ in where they are found and how they are
+ * written. Everything a caller supplies is captured when the controls are
+ * registered, so the component using this must be remounted — with a `key` —
+ * when it changes subject.
  */
 
-type LevaStore = ReturnType<typeof useCreateStore>
+/** Leva's store is not a React value, so it crosses the root boundary as a prop. */
+export type LevaStore = ReturnType<typeof useCreateStore>
 
-export function LightPanel({ levaStore }: { levaStore: LevaStore }) {
-  const selected = useStudio(selectSelected)
-  if (!selected) return null
-
-  return (
-    // Remounted per light: the control list is built once, from the schema,
-    // and a different type means a different list.
-    <LightFields
-      key={`${selected.id}:${selected.type}`}
-      id={selected.id}
-      type={selected.type}
-      levaStore={levaStore}
-    />
-  )
-}
-
-function selectSelected(state: StudioState): { id: string; type: LightType } | null {
-  const light = state.selectedId ? lightIn(state.setup, state.selectedId) : undefined
-  return light ? { id: light.id, type: light.type } : null
-}
-
-interface LightFieldsProps {
-  id: string
-  type: LightType
+interface MirrorProps<Subject, Patch> {
+  fields: Field<Subject, Patch>[]
   levaStore: LevaStore
+  /**
+   * Finds the subject in a setup. Called for the current one and, on every
+   * store write, for the previous — which is how a change is told from a
+   * write that did not touch this subject.
+   *
+   * Must be stable: `useCallback` it, or the controls re-register.
+   */
+  select: (setup: LightSetup) => Subject | undefined
+  /** Must be stable, for the same reason. */
+  write: (patch: Patch) => void
 }
 
-function LightFields({ id, type, levaStore }: LightFieldsProps) {
+export function useLevaMirror<Subject, Patch>({
+  fields,
+  levaStore,
+  select,
+  write,
+}: MirrorProps<Subject, Patch>): void {
   const store = useStudioStore()
-  const fields = useMemo(() => fieldsFor(type), [type])
   /** The control currently under the pointer, which must not be written to. */
   const editing = useRef<string | null>(null)
 
   const [, set] = useControls(
     () => {
-      const light = lightIn(store.getState().setup, id)
-      if (!light) return {}
+      const subject = select(store.getState().setup)
+      if (!subject) return {}
 
-      return schemaFor(fields, light, (field) => ({
+      return schemaFor(fields, subject, (field) => ({
         onChange: (value: FieldValue, _path: string, context: ChangeContext) => {
           // The initial call just reports the value the schema was built from,
           // and a programmatic set is this panel catching up to the store.
           // Writing either back would record an edit nobody made.
           if (context.initial || !context.fromPanel) return
 
-          const current = lightIn(store.getState().setup, id)
-          if (current) store.getState().updateLight(id, field.patch(current, value))
+          const current = select(store.getState().setup)
+          if (current) write(field.patch(current, value))
         },
 
         // Scrubbing a slider is one undo step, the same as one gizmo drag.
@@ -88,7 +81,7 @@ function LightFields({ id, type, levaStore }: LightFieldsProps) {
     // settings object in argument three is dropped without a word. Dropped, it
     // registers into leva's global store and spawns leva's floating panel.
     { store: levaStore },
-    [fields, id, store],
+    [fields, select, write, store],
   )
 
   // Leva keeps whatever value a control already had, so every field two light
@@ -96,28 +89,28 @@ function LightFields({ id, type, levaStore }: LightFieldsProps) {
   // the numbers of the light you looked at before this one. The schema alone
   // cannot fix that; the values have to be written over it.
   useEffect(() => {
-    const light = lightIn(store.getState().setup, id)
-    if (!light) return
+    const subject = select(store.getState().setup)
+    if (!subject) return
 
     const values: Record<string, FieldValue> = {}
-    for (const field of fields) values[field.key] = field.read(light)
+    for (const field of fields) values[field.key] = field.read(subject)
     set(values as Parameters<typeof set>[0])
-  }, [fields, id, set, store])
+  }, [fields, select, set, store])
 
-  // Everything that edits this light from somewhere else — the gizmo, the
+  // Everything that edits this subject from somewhere else — the gizmo, the
   // outliner, undo, redo, reset — arrives here.
   useEffect(() => {
     return store.subscribe((state, previous) => {
-      const light = lightIn(state.setup, id)
-      if (!light) return
-      const before = lightIn(previous.setup, id)
+      const subject = select(state.setup)
+      if (!subject) return
+      const before = select(previous.setup)
 
       const changed: Record<string, FieldValue> = {}
       for (const field of fields) {
         // Writing to the control being dragged would fight the drag.
         if (field.key === editing.current) continue
 
-        const value = field.read(light)
+        const value = field.read(subject)
         if (before && same(field.read(before), value)) continue
         changed[field.key] = value
       }
@@ -126,9 +119,7 @@ function LightFields({ id, type, levaStore }: LightFieldsProps) {
       // runtime, so leva's value types have nothing to match them against.
       if (Object.keys(changed).length > 0) set(changed as Parameters<typeof set>[0])
     })
-  }, [fields, id, set, store])
-
-  return null
+  }, [fields, select, set, store])
 }
 
 interface ChangeContext {
@@ -145,8 +136,6 @@ interface ChangeContext {
  */
 type LevaSchema = ReturnType<Extract<NonNullable<Parameters<typeof useControls>[1]>, () => unknown>>
 
-type Handlers = (field: Field) => Control
-
 /**
  * Lays the flat field list out into leva's nested folders.
  *
@@ -157,7 +146,11 @@ type Handlers = (field: Field) => Control
  * between light types. See `Field.order` for why those numbers are banded
  * rather than counted.
  */
-function schemaFor(fields: Field[], light: LightConfig, handlers: Handlers): LevaSchema {
+function schemaFor<Subject, Patch>(
+  fields: Field<Subject, Patch>[],
+  subject: Subject,
+  handlers: (field: Field<Subject, Patch>) => Control,
+): LevaSchema {
   const root: LevaSchema = {}
   const folders = new Map<string, LevaSchema>()
 
@@ -183,17 +176,13 @@ function schemaFor(fields: Field[], light: LightConfig, handlers: Handlers): Lev
   }
 
   for (const field of fields) {
-    const control = { ...field.input(light), ...handlers(field), order: field.order }
+    const control = { ...field.input(subject), ...handlers(field), order: field.order }
     // Assembled from a runtime field list, so there is nothing static for
     // leva's control types to check it against.
     folderAt(field.path, field.order)[field.key] = control as LevaSchema[string]
   }
 
   return root
-}
-
-function lightIn(setup: LightSetup, id: string): LightConfig | undefined {
-  return setup.lights.find((light) => light.id === id)
 }
 
 function same(a: FieldValue, b: FieldValue): boolean {

@@ -76,6 +76,22 @@ export function TrashIcon() {
   )
 }
 
+/**
+ * A framed horizon, for showing the environment behind the scene.
+ *
+ * Not an eye: the eyes in this column decide whether something lights the
+ * scene, and this only decides whether you can look straight at it.
+ */
+export function BackdropIcon() {
+  return (
+    <svg {...SVG} aria-hidden>
+      <rect x="2" y="3" width="12" height="10" rx="1.5" />
+      <path d="M2 9.5h12" />
+      <circle cx="5.75" cy="6.25" r="1.25" />
+    </svg>
+  )
+}
+
 /** Solo is a filled dot rather than an eye: it is a different kind of state. */
 export function SoloIcon({ on }: { on: boolean }) {
   return (

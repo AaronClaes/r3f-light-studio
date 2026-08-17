@@ -141,6 +141,13 @@ const CSS = `
   box-shadow: inset 0 0 0 1px #0006;
 }
 
+/* The environment has no colour of its own — it is whatever is in it. Sky over
+   ground says which row this is without spending any width on saying so. */
+.ls-swatch-env { background: linear-gradient(#7fa8d6, #6b5c4a); }
+
+/* No type label and no hover-swap: its one action is always on show. */
+.ls-row-env .ls-backdrop { margin-left: 4px; }
+
 .ls-name {
   flex: 1;
   overflow: hidden;
@@ -205,6 +212,11 @@ const CSS = `
   cursor: pointer;
 }
 .ls-toggle:hover { background: #ffffff1a; color: var(--ls-text); }
+/* Still shows its state and still explains itself on hover — it just has
+   nothing left to toggle. Used by the backdrop override once the rig commits
+   to a backdrop of its own. */
+.ls-toggle:disabled { cursor: default; }
+.ls-toggle:disabled:hover { background: none; }
 .ls-toggle:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: -1px; }
 .ls-toggle[data-on='true'] { color: var(--ls-text); }
 .ls-toggle[data-on='false'] { color: var(--ls-text-faint); }

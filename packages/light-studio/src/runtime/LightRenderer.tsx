@@ -3,7 +3,9 @@ import * as THREE from 'three'
 
 import type {
   DirectionalLightConfig,
+  EnvironmentConfig,
   LightConfig,
+  LightformerConfig,
   OrthographicShadowConfig,
   PointLightConfig,
   RectAreaLightConfig,
@@ -11,24 +13,59 @@ import type {
   SpotLightConfig,
   Vec3,
 } from '../core/schema'
+import { EnvironmentRig } from './EnvironmentRig'
+
+/** Everything that becomes a three light. A lightformer becomes a mesh instead. */
+type DirectLight = Exclude<LightConfig, LightformerConfig>
+
+interface LightRendererProps {
+  lights: LightConfig[]
+  /** null when there is no environment to render, or it is switched off. */
+  environment?: EnvironmentConfig | null
+  /** Shows the backdrop whatever the rig says. The editor's override. */
+  forceBackground?: boolean
+}
 
 /**
  * Turns a setup into r3f elements. Deliberately dumb: no store, no editor
  * state. This is the code path that runs in production.
+ *
+ * Lightformers are separated out rather than rendered in place: they are not
+ * three lights and they do not go in the scene. They are meshes drawn into the
+ * environment's cube map, so they have to be children of `<Environment>`.
  */
-export function LightRenderer({ lights }: { lights: LightConfig[] }) {
+export function LightRenderer({
+  lights,
+  environment = null,
+  forceBackground = false,
+}: LightRendererProps) {
   useRectAreaLightUniforms(lights.some((light) => light.type === 'rectArea'))
+
+  const lightformers: LightformerConfig[] = []
+  const direct: DirectLight[] = []
+  for (const light of lights) {
+    if (light.type === 'lightformer') lightformers.push(light)
+    else direct.push(light)
+  }
 
   return (
     <>
-      {lights.map((light) => (
+      {direct.map((light) => (
         <LightNode key={light.id} light={light} />
       ))}
+
+      {environment ? (
+        <EnvironmentRig
+          config={environment}
+          forceBackground={forceBackground}
+          lightformers={lightformers}
+        />
+      ) : null}
     </>
   )
 }
 
-function LightNode({ light }: { light: LightConfig }) {
+function LightNode({ light }: { light: DirectLight }) {
   switch (light.type) {
     case 'ambient':
       return <ambientLight color={light.color} intensity={light.intensity} />

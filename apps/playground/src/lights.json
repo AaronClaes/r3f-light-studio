@@ -58,6 +58,17 @@
       "intensity": 6,
       "position": [1.6, 0.5, 1.8],
       "distance": 8
+    },
+    {
+      "id": "softbox",
+      "type": "lightformer",
+      "name": "Softbox",
+      "color": "#eaf2ff",
+      "intensity": 3,
+      "position": [0, 3.5, 3],
+      "target": [0, 1, 0],
+      "width": 5,
+      "height": 3
     }
   ]
 }

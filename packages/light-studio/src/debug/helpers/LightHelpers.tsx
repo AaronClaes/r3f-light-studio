@@ -5,6 +5,7 @@ import type {
   DirectionalLightConfig,
   HemisphereLightConfig,
   LightConfig,
+  LightformerConfig,
   PointLightConfig,
   RectAreaLightConfig,
   SpotLightConfig,
@@ -12,7 +13,7 @@ import type {
 } from '../../core/schema'
 import { useStudio } from '../context'
 import { useDrawnLights } from '../drawnLights'
-import { wireCone, wireLine, wireRectangle, wireSphere } from './geometry'
+import { wireBox, wireCone, wireEllipse, wireLine, wireRectangle, wireSphere } from './geometry'
 
 /**
  * The shapes that describe what a light *does* — where it points, how far it
@@ -95,6 +96,9 @@ function LightHelper({ light, emphasis }: HelperProps) {
 
     case 'rectArea':
       return <RectAreaHelper emphasis={emphasis} light={light} />
+
+    case 'lightformer':
+      return <LightformerHelper emphasis={emphasis} light={light} />
   }
 }
 
@@ -171,6 +175,60 @@ function RectAreaHelper({ light, emphasis }: HelperProps<RectAreaLightConfig>) {
       <Beam color={light.color} emphasis={emphasis} from={light.position} to={light.target} />
     </>
   )
+}
+
+/**
+ * The only helper that draws something the scene does not otherwise contain.
+ *
+ * A lightformer is a mesh inside the environment's own little scene, so nothing
+ * of it appears here — you would be dragging an invisible point and judging the
+ * result from a reflection. The wireframe is its actual shape and size, in the
+ * place it occupies, which is what makes it aimable at all. Turning the
+ * environment on as a backdrop shows you the real thing behind it.
+ *
+ * `ring` is drawn as two outlines because that is what drei's is: a disc with
+ * the middle half of it missing.
+ */
+function LightformerHelper({ light, emphasis }: HelperProps<LightformerConfig>) {
+  const { form, width, height } = light
+  const shape = useMemo(() => formGeometry(form, width, height), [form, width, height])
+  const opacity = opacityOf('primary', emphasis)
+
+  return (
+    <>
+      <Aimed position={light.position} target={light.target}>
+        {shape.map((geometry) => (
+          <Wire color={light.color} geometry={geometry} key={geometry.uuid} opacity={opacity} />
+        ))}
+      </Aimed>
+      <Beam color={light.color} emphasis={emphasis} from={light.position} to={light.target} />
+    </>
+  )
+}
+
+/** drei's ring keeps its inner edge at half the outer radius. */
+const RING_INNER = 0.5
+
+function formGeometry(
+  form: LightformerConfig['form'],
+  width: number,
+  height: number,
+): THREE.BufferGeometry[] {
+  switch (form) {
+    case 'circle':
+      return [wireEllipse(width, height)]
+
+    case 'ring':
+      return [wireEllipse(width, height), wireEllipse(width * RING_INNER, height * RING_INNER)]
+
+    // drei scales a unit box, so the depth is whatever the third scale axis is
+    // — and the renderer passes 1, since the schema has no field for it.
+    case 'box':
+      return [wireBox(width, height, 1)]
+
+    case 'rect':
+      return [wireRectangle(width, height)]
+  }
 }
 
 /** The line from a light to the point it aims at. */

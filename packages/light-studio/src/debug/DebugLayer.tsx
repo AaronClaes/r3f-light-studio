@@ -2,7 +2,11 @@ import { useCreateStore } from 'leva'
 import { useEffect, useState } from 'react'
 
 import type { LightSetup } from '../core/schema'
-import { createLightStudioStore, selectRenderableLights } from '../core/store'
+import {
+  createLightStudioStore,
+  selectRenderableEnvironment,
+  selectRenderableLights,
+} from '../core/store'
 import { LightRenderer } from '../runtime/LightRenderer'
 import { describeToggleKey, useToggleKey, type ToggleKey } from '../runtime/toggleKey'
 import { LightStudioStoreProvider, useStudio } from './context'
@@ -12,7 +16,7 @@ import { useHistoryKeys } from './historyKeys'
 import { LightGizmo } from './LightGizmo'
 import { LightHandles } from './LightHandles'
 import { useLightKeys } from './lightKeys'
-import { LightPanel } from './panel/LightPanel'
+import { PropertiesPanel } from './panel/PropertiesPanel'
 import { readVisible, writeVisible } from './persistVisible'
 import { findSaveTarget } from './save'
 import { DebugUI } from './ui/DebugUI'
@@ -117,6 +121,8 @@ export default function DebugLayer({ setup, onExit, toggleKey, saveId }: DebugLa
 
 function StudioScene() {
   const lights = useStudio(selectRenderableLights)
+  const environment = useStudio(selectRenderableEnvironment)
+  const forceBackground = useStudio((state) => state.forceBackground)
   const visible = useStudio((state) => state.visible)
 
   // Here rather than in a component of their own: they are the things in the
@@ -131,7 +137,13 @@ function StudioScene() {
 
   return (
     <>
-      <LightRenderer lights={lights} />
+      {/* Put the studio away and the override goes with it. A backdrop the rig
+          asked for stays, because that one is the rig. */}
+      <LightRenderer
+        environment={environment}
+        forceBackground={visible && forceBackground}
+        lights={lights}
+      />
 
       {/* Hidden, the scene is the production one: no wireframes, no grabbable
           points, no gizmo. Unmounting them is safe — they hold nothing but
@@ -149,7 +161,7 @@ function StudioScene() {
           mounted while hidden — leva reclaims its panel into a floating root
           of its own the moment the last one unmounts, which would put a panel
           on screen at exactly the moment you asked for none. */}
-      <LightPanel levaStore={levaStore} />
+      <PropertiesPanel levaStore={levaStore} />
       <DebugUI levaStore={levaStore} />
     </>
   )

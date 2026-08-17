@@ -28,15 +28,19 @@ function fromPairs(positions: number[]): THREE.BufferGeometry {
 /** Maps a point on the unit circle into the plane the circle should lie in. */
 type Project = (x: number, y: number) => Vec3
 
-function pushCircle(into: number[], radius: number, project: Project): void {
+function pushEllipse(into: number[], rx: number, ry: number, project: Project): void {
   for (let i = 0; i < RIM_SEGMENTS; i += 1) {
     const from = (i / RIM_SEGMENTS) * Math.PI * 2
     const to = ((i + 1) / RIM_SEGMENTS) * Math.PI * 2
     into.push(
-      ...project(Math.cos(from) * radius, Math.sin(from) * radius),
-      ...project(Math.cos(to) * radius, Math.sin(to) * radius),
+      ...project(Math.cos(from) * rx, Math.sin(from) * ry),
+      ...project(Math.cos(to) * rx, Math.sin(to) * ry),
     )
   }
+}
+
+function pushCircle(into: number[], radius: number, project: Project): void {
+  pushEllipse(into, radius, radius, project)
 }
 
 export function wireLine(from: Vec3, to: Vec3): THREE.BufferGeometry {
@@ -49,6 +53,49 @@ export function wireRectangle(width: number, height: number): THREE.BufferGeomet
   const y = height / 2
   return fromPairs([-x, -y, 0, x, -y, 0, x, -y, 0, x, y, 0, x, y, 0, -x, y, 0, -x, y, 0, -x, -y, 0])
 }
+
+/**
+ * Centred on the origin in the XY plane, like `wireRectangle`.
+ *
+ * Takes a width and a height rather than a radius because that is what the
+ * schema stores: a lightformer is scaled on two axes, so a circular one is an
+ * ellipse the moment its width and height differ.
+ */
+export function wireEllipse(width: number, height: number): THREE.BufferGeometry {
+  const positions: number[] = []
+  pushEllipse(positions, width / 2, height / 2, (x, y) => [x, y, 0])
+  return fromPairs(positions)
+}
+
+/** Twelve edges, centred on the origin, square to the axes. */
+export function wireBox(width: number, height: number, depth: number): THREE.BufferGeometry {
+  const x = width / 2
+  const y = height / 2
+  const z = depth / 2
+  const positions: number[] = []
+
+  // The near and far faces, then the four struts joining their corners.
+  for (const face of [-z, z]) {
+    BOX_CORNERS.forEach(([cx, cy], index) => {
+      const [nx, ny] = BOX_CORNERS[(index + 1) % BOX_CORNERS.length] ?? BOX_CORNERS[0]
+      positions.push(cx * x, cy * y, face, nx * x, ny * y, face)
+    })
+  }
+
+  for (const [cx, cy] of BOX_CORNERS) {
+    positions.push(cx * x, cy * y, -z, cx * x, cy * y, z)
+  }
+
+  return fromPairs(positions)
+}
+
+/** A face's corners, in order, so consecutive pairs are its edges. */
+const BOX_CORNERS = [
+  [-1, -1],
+  [1, -1],
+  [1, 1],
+  [-1, 1],
+] as const
 
 /** Apex at the origin, opening toward -Z. */
 export function wireCone(radius: number, length: number): THREE.BufferGeometry {

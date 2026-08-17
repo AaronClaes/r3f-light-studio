@@ -82,10 +82,12 @@ export function LightStudio({
   const live = edited ?? parsed
 
   // Solo is a way of looking at a rig rather than a property of one, so it
-  // belongs to the editor. What renders here is only ever the `enabled` filter.
+  // belongs to the editor. What renders here is only ever the `enabled` filter
+  // — which the environment gets too, for the same reason.
   const lights = useMemo(() => visibleLights(live.lights), [live.lights])
+  const environment = live.environment.enabled ? live.environment : null
 
-  const rig = <LightRenderer lights={lights} />
+  const rig = <LightRenderer environment={environment} lights={lights} />
 
   if (!debug) return rig
 
