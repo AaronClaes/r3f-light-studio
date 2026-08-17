@@ -1,11 +1,4 @@
-import {
-  DEFAULT_RENDERER,
-  LIGHT_DEFINITIONS,
-  SCHEMA_VERSION,
-  type LightConfig,
-  type LightSetup,
-  type RendererConfig,
-} from './schema'
+import { LIGHT_DEFINITIONS, SCHEMA_VERSION, type LightConfig, type LightSetup } from './schema'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -50,14 +43,6 @@ function stripDefaults(light: LightConfig): UnknownRecord {
   return out
 }
 
-function isDefaultRenderer(renderer: RendererConfig | undefined): boolean {
-  if (!renderer) return true
-  return (
-    renderer.toneMapping === DEFAULT_RENDERER.toneMapping &&
-    renderer.exposure === DEFAULT_RENDERER.exposure
-  )
-}
-
 /**
  * Writes only what was actually authored, so diffs stay small and defaults
  * remain free to change without rewriting existing files.
@@ -69,7 +54,6 @@ export function serializeSetup(setup: LightSetup, threeVersion?: string): Unknow
       ...(threeVersion ? { three: threeVersion } : {}),
       generator: 'r3f-light-studio',
     },
-    ...(isDefaultRenderer(setup.renderer) ? {} : { renderer: setup.renderer }),
     lights: setup.lights.map(stripDefaults),
   }
 }

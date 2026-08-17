@@ -14,25 +14,6 @@ export type Vec3 = [x: number, y: number, z: number]
 /** Orthographic shadow-camera bounds. */
 export type ShadowFrustum = [left: number, right: number, top: number, bottom: number]
 
-export type ToneMappingName =
-  | 'None'
-  | 'Linear'
-  | 'Reinhard'
-  | 'Cineon'
-  | 'ACESFilmic'
-  | 'AgX'
-  | 'Neutral'
-
-export interface RendererConfig {
-  toneMapping: ToneMappingName
-  exposure: number
-}
-
-export const DEFAULT_RENDERER: RendererConfig = {
-  toneMapping: 'ACESFilmic',
-  exposure: 1,
-}
-
 export interface ShadowConfig {
   enabled: boolean
   /** Square shadow map resolution, in pixels. */
@@ -192,12 +173,18 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
  */
 export type LightPatch = Partial<DistributiveOmit<LightConfig, 'id' | 'type'>>
 
+/**
+ * The rig, and nothing else.
+ *
+ * Tone mapping and exposure used to live here and no longer do: they are the
+ * renderer's, which belongs to `<Canvas>`. Two owners of `gl.toneMapping` is a
+ * conflict a lighting rig cannot win — see the note in `LightStudio`.
+ */
 export interface LightSetup {
   version: number
   meta?: {
     three?: string
     generator?: string
   }
-  renderer?: RendererConfig
   lights: LightConfig[]
 }

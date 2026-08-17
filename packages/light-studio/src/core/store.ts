@@ -2,15 +2,7 @@ import { createStore } from 'zustand/vanilla'
 
 import { createLight, uniqueId, visibleLights } from './lights'
 import type { SaveTarget } from './save'
-import {
-  DEFAULT_RENDERER,
-  type LightConfig,
-  type LightPatch,
-  type LightSetup,
-  type LightType,
-  type RendererConfig,
-  type VectorField,
-} from './schema'
+import type { LightConfig, LightPatch, LightSetup, LightType, VectorField } from './schema'
 
 const HISTORY_LIMIT = 100
 
@@ -90,7 +82,6 @@ export interface StudioState {
   addLight: (type: LightType) => string
   removeLight: (id: string) => void
   duplicateLight: (id: string) => string | null
-  setRenderer: (patch: Partial<RendererConfig>) => void
 
   /** Start coalescing edits. Nested calls keep the outermost snapshot. */
   beginTransaction: () => void
@@ -218,11 +209,6 @@ export function createLightStudioStore(initial: LightSetup) {
         set({ selectedId: newId, selectedField: 'position' })
         return newId
       },
-
-      setRenderer: (patch) =>
-        commit((draft) => {
-          draft.renderer = { ...DEFAULT_RENDERER, ...draft.renderer, ...patch }
-        }),
 
       beginTransaction: () =>
         set((state) => (state.transaction ? state : { transaction: state.setup })),

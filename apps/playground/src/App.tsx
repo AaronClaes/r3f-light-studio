@@ -8,7 +8,9 @@ import setup from './lights.json'
 export function App() {
   return (
     <>
-      <Canvas shadows camera={{ position: [6, 4, 8], fov: 40 }}>
+      {/* Tone mapping and exposure are the canvas's, not the rig's. r3f
+          already defaults to ACESFilmic; only the exposure is ours. */}
+      <Canvas shadows camera={{ position: [6, 4, 8], fov: 40 }} gl={{ toneMappingExposure: 1.1 }}>
         {/* makeDefault is what lets the studio's gizmos suspend orbiting while
             you drag a light. Without it the camera fights the gizmo. */}
         <OrbitControls makeDefault target={[0, 0.8, 0]} />

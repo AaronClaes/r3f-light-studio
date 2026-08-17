@@ -37,7 +37,7 @@ your work out.
 
 - [x] Schema, parser and omit-defaults exporter
 - [x] Zustand store with history, solo and selection
-- [x] Renderer — all six light types, targets, shadows, tone mapping
+- [x] Renderer — all six light types, targets, shadows
 - [x] Debug helpers — a wireframe per light, drawn from the config
 - [x] Selection — click a light, or the point it aims at
 - [x] Gizmo — drag the selected point, one undo step per drag
@@ -48,7 +48,7 @@ your work out.
 - [x] Copy the rig back out as JSON, formatted for the file it came from
 - [x] Vite dev-server writeback — `Cmd+S` writes the file in place
 - [x] Add, duplicate and delete lights — the rig's shape, not just its values
-- [ ] Fit-shadow-camera, presets, renderer panel, A/B compare
+- [ ] Fit-shadow-camera, presets, A/B compare
 
 ## Layout
 
@@ -108,12 +108,33 @@ An `Object3D`-format export is a possible v2 feature, as a one-way adapter.
   camera and have no `frustum` field at all.
 - **Intensities assume physically-correct lighting** (three >= r155). Point and
   spot values are in the tens, not around 1.
-- **Tone mapping and exposure are applied by default**, and restored on
-  unmount. Pass `applyRenderer={false}` if your app manages its own.
+- **Tone mapping and exposure are not in the schema**, and the studio never
+  touches the renderer. They belong to `<Canvas gl={{ toneMappingExposure }} />`
+  — see below.
 - **Solo is not in the schema.** It's a way of looking at a rig, not a property
   of one, so it lives in the store and never serialises.
 - Defaults are omitted on write. `parseSetup` fills them back in and never
   throws — malformed input yields warnings, not a black scene.
+
+### The renderer belongs to `<Canvas>`
+
+A setup used to carry `renderer: { toneMapping, exposure }`, and `<LightStudio>`
+applied it to the `WebGLRenderer` on mount and restored the previous values on
+unmount. That is gone.
+
+`gl.toneMapping` has one sensible owner and it is the canvas. Writing it from a
+component that mounts and unmounts means restoring a value captured on mount,
+which is already stale if the app changed its own in between — and the
+`applyRenderer={false}` escape hatch made the conflict optional rather than
+absent. A rig that quietly overrides the look your `<Canvas>` asked for is
+worse than one that has no opinion:
+
+```tsx
+<Canvas gl={{ toneMappingExposure: 1.1 }}>
+```
+
+A file that still has a `renderer` block parses fine and warns once, saying
+where the setting went. It is dropped on the next save.
 
 ## Arming it, and showing it
 

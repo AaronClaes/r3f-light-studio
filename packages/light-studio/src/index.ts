@@ -6,6 +6,7 @@ export { serializeSetup } from './core/serialize'
 
 export {
   LIGHT_DEFINITIONS,
+  LIGHT_TYPES,
   SCHEMA_VERSION,
   type AmbientLightConfig,
   type DirectionalLightConfig,
@@ -17,10 +18,8 @@ export {
   type OrthographicShadowConfig,
   type PointLightConfig,
   type RectAreaLightConfig,
-  type RendererConfig,
   type ShadowConfig,
   type ShadowFrustum,
   type SpotLightConfig,
-  type ToneMappingName,
   type Vec3,
 } from './core/schema'

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import type { LightSetup } from '../core/schema'
 import { createLightStudioStore, selectRenderableLights } from '../core/store'
 import { LightRenderer } from '../runtime/LightRenderer'
-import { RendererSettings } from '../runtime/RendererSettings'
 import { describeToggleKey, useToggleKey, type ToggleKey } from '../runtime/toggleKey'
 import { LightStudioStoreProvider, useStudio } from './context'
 import { setupToJson } from './exportSetup'
@@ -20,7 +19,6 @@ import { DebugUI } from './ui/DebugUI'
 
 interface DebugLayerProps {
   setup: LightSetup
-  applyRenderer: boolean
   /** Hands the edited rig back on close, so it outlives the `debug` toggle. */
   onExit: (setup: LightSetup) => void
   /** Shows and hides the editor. `null` binds nothing. */
@@ -33,13 +31,7 @@ interface DebugLayerProps {
  * Owns the store and renders from it. That is the only difference from the
  * production path so far — helpers, gizmos and the panel slot in here.
  */
-export default function DebugLayer({
-  setup,
-  applyRenderer,
-  onExit,
-  toggleKey,
-  saveId,
-}: DebugLayerProps) {
+export default function DebugLayer({ setup, onExit, toggleKey, saveId }: DebugLayerProps) {
   // Lazy initialiser, not useMemo: the store is created exactly once and must
   // not re-derive from `setup`, which would discard in-progress edits.
   const [store] = useState(() => {
@@ -118,13 +110,12 @@ export default function DebugLayer({
 
   return (
     <LightStudioStoreProvider value={store}>
-      <StudioScene applyRenderer={applyRenderer} />
+      <StudioScene />
     </LightStudioStoreProvider>
   )
 }
 
-function StudioScene({ applyRenderer }: { applyRenderer: boolean }) {
-  const renderer = useStudio((state) => state.setup.renderer)
+function StudioScene() {
   const lights = useStudio(selectRenderableLights)
   const visible = useStudio((state) => state.visible)
 
@@ -140,7 +131,6 @@ function StudioScene({ applyRenderer }: { applyRenderer: boolean }) {
 
   return (
     <>
-      {applyRenderer && renderer ? <RendererSettings config={renderer} /> : null}
       <LightRenderer lights={lights} />
 
       {/* Hidden, the scene is the production one: no wireframes, no grabbable

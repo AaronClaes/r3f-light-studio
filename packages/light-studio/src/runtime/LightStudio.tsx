@@ -5,7 +5,6 @@ import { parseSetup } from '../core/parse'
 import { DEFAULT_SAVE_ID } from '../core/save'
 import type { LightSetup } from '../core/schema'
 import { LightRenderer } from './LightRenderer'
-import { RendererSettings } from './RendererSettings'
 import { DEFAULT_TOGGLE_KEY, type ToggleKey } from './toggleKey'
 
 /** Separate chunk, so no editor code reaches a production bundle. */
@@ -37,16 +36,27 @@ export interface LightStudioProps {
    * whether the editor was open when the tab last reloaded.
    */
   id?: string
-  /** Set false to keep your own tone mapping and exposure. */
-  applyRenderer?: boolean
 }
 
+/**
+ * Lights, and only lights.
+ *
+ * Tone mapping and exposure were once part of a setup and applied to the
+ * renderer from here. They are gone: `gl.toneMapping` has exactly one sensible
+ * owner and it is `<Canvas>`. Reaching in from a component that mounts and
+ * unmounts meant restoring a value captured on mount, which is already stale
+ * if the app changed its own in between — and an `applyRenderer` escape hatch
+ * only made the conflict optional rather than absent.
+ *
+ * ```tsx
+ * <Canvas gl={{ toneMappingExposure: 1.1 }}>
+ * ```
+ */
 export function LightStudio({
   setup,
   debug = false,
   toggleKey = DEFAULT_TOGGLE_KEY,
   id = DEFAULT_SAVE_ID,
-  applyRenderer = true,
 }: LightStudioProps) {
   const { setup: parsed, issues } = useMemo(() => parseSetup(setup), [setup])
 
@@ -75,12 +85,7 @@ export function LightStudio({
   // belongs to the editor. What renders here is only ever the `enabled` filter.
   const lights = useMemo(() => visibleLights(live.lights), [live.lights])
 
-  const rig = (
-    <>
-      {applyRenderer && live.renderer ? <RendererSettings config={live.renderer} /> : null}
-      <LightRenderer lights={lights} />
-    </>
-  )
+  const rig = <LightRenderer lights={lights} />
 
   if (!debug) return rig
 
@@ -91,13 +96,7 @@ export function LightStudio({
   // so arming again starts from the same place.
   return (
     <Suspense fallback={rig}>
-      <DebugLayer
-        applyRenderer={applyRenderer}
-        onExit={setEdited}
-        saveId={id}
-        setup={live}
-        toggleKey={toggleKey}
-      />
+      <DebugLayer onExit={setEdited} saveId={id} setup={live} toggleKey={toggleKey} />
     </Suspense>
   )
 }

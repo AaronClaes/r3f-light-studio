@@ -1,13 +1,10 @@
 import { uniqueId } from './lights'
 import {
-  DEFAULT_RENDERER,
   LIGHT_DEFINITIONS,
   SCHEMA_VERSION,
   type LightConfig,
   type LightSetup,
   type LightType,
-  type RendererConfig,
-  type ToneMappingName,
 } from './schema'
 
 export interface ParseResult {
@@ -17,16 +14,6 @@ export interface ParseResult {
 }
 
 type UnknownRecord = Record<string, unknown>
-
-const TONE_MAPPINGS = new Set<string>([
-  'None',
-  'Linear',
-  'Reinhard',
-  'Cineon',
-  'ACESFilmic',
-  'AgX',
-  'Neutral',
-])
 
 /** String fields that must hold a hex colour rather than arbitrary text. */
 const COLOR_FIELDS = new Set(['color', 'groundColor'])
@@ -121,18 +108,6 @@ function parseLight(raw: UnknownRecord, index: number, issues: string[]): LightC
   return light as LightConfig
 }
 
-function parseRenderer(value: unknown): RendererConfig | undefined {
-  if (!isRecord(value)) return undefined
-  const toneMapping = value.toneMapping
-  return {
-    toneMapping:
-      typeof toneMapping === 'string' && TONE_MAPPINGS.has(toneMapping)
-        ? (toneMapping as ToneMappingName)
-        : DEFAULT_RENDERER.toneMapping,
-    exposure: isFiniteNumber(value.exposure) ? value.exposure : DEFAULT_RENDERER.exposure,
-  }
-}
-
 /**
  * Turns a JSON import, a hand-edited file or an older export into a fully
  * populated setup. Never throws — malformed input yields issues and defaults.
@@ -151,6 +126,16 @@ export function parseSetup(input: unknown): ParseResult {
   if (version > SCHEMA_VERSION) {
     issues.push(
       `Setup is version ${version} but this build understands ${SCHEMA_VERSION}. Unknown fields will be dropped on export.`,
+    )
+  }
+
+  // Said out loud rather than dropped in silence. A file written by an older
+  // build can still carry one, and the next save would quietly delete settings
+  // someone committed on purpose — while the scene kept using them, because
+  // whatever `<Canvas>` says is still in force.
+  if (input.renderer !== undefined) {
+    issues.push(
+      '`renderer` is no longer part of a setup and will be dropped on the next save. Tone mapping and exposure belong to <Canvas gl={{ ... }} />.',
     )
   }
 
@@ -182,13 +167,10 @@ export function parseSetup(input: unknown): ParseResult {
     lights.push(light)
   }
 
-  const renderer = parseRenderer(input.renderer)
-
   return {
     setup: {
       version: SCHEMA_VERSION,
       ...(isRecord(input.meta) ? { meta: input.meta as LightSetup['meta'] } : {}),
-      ...(renderer ? { renderer } : {}),
       lights,
     },
     issues,

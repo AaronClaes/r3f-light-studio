@@ -3,10 +3,6 @@
   "meta": {
     "generator": "r3f-light-studio"
   },
-  "renderer": {
-    "toneMapping": "ACESFilmic",
-    "exposure": 1.1
-  },
   "lights": [
     {
       "id": "ambient",
