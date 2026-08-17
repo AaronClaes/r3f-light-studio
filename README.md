@@ -155,6 +155,20 @@ Three details in the binding are load-bearing:
 - **The modifier must match exactly.** With a bare `Backquote`, Shift+`` ` ``
   types a tilde and does nothing else.
 
+There is also an **×** in the corner of the `Lights` header, which does exactly
+what the key does. Its tooltip names the binding — `Hide the studio (F2)` —
+because the editor keeps everything while hidden and someone who closed it from
+a button has nothing else on screen to tell them how to get it back.
+
+**Whether the editor is showing lives in the store**, not in `<LightStudio />`.
+The editor's DOM is rendered into a React root of its own exactly once, so a
+callback handed in from the tree outside would freeze at that first render. The
+store is the one thing that crosses the boundary, so anything the panels need
+from outside — the visibility flag, the name of the toggle key — goes through
+it. The binding is therefore made in the debug chunk, and a keypress in the
+few milliseconds before that chunk loads does nothing; there is no editor to
+show yet either.
+
 ## Undo
 
 `Cmd+Z` and `Cmd+Shift+Z`, or `Ctrl+Z` and `Ctrl+Y`. Both platforms' modifiers
@@ -429,6 +443,12 @@ this is its fallback for anyone not on a Vite dev server.
 The bar reads **Edited** whenever the rig has drifted from the file, and stops
 saying so once you copy. Losing that word is the confirmation; the button also
 flashes _Copied_ for a couple of seconds.
+
+**Reset** sits next to it, and only while there is something to discard. A
+reset button that is always there is a standing invitation to throw the session
+away; one that arrives alongside the edits it would undo is a way out of them.
+It does not ask first, because it pushes a history entry like any other change
+— `Cmd+Z` brings the whole rig straight back.
 
 Copying counts as **saving**, and that is a real decision rather than an
 oversight. The paste that follows comes back in through the `setup` prop, and

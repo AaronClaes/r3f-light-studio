@@ -50,7 +50,25 @@ export function Footer() {
 
   return (
     <footer className="ls-footer">
-      {dirty ? <span className="ls-state">Edited</span> : null}
+      {/* Both only while there is something to say or undo. A Reset that is
+          always there is a permanent invitation to throw the session away;
+          one that appears with the edits it would discard is a way out of
+          them. It pushes a history entry like any other change, so Cmd+Z
+          brings the rig straight back — which is why it does not ask. */}
+      {dirty ? (
+        <>
+          <span className="ls-state">Edited</span>
+          <button
+            type="button"
+            className="ls-reset"
+            onClick={() => store.getState().reset()}
+            title="Put every light back to the file. Undoable."
+          >
+            Reset
+          </button>
+        </>
+      ) : null}
+
       <button type="button" className="ls-copy" data-status={status} onClick={copy}>
         {LABELS[status]}
       </button>

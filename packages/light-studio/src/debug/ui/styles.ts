@@ -209,6 +209,25 @@ const CSS = `
 }
 .ls-solo-badge:hover { background: #ffbb4d; }
 
+/* Shaped like a row toggle so the header's two controls match, but it is the
+   last thing on the right of the whole column rather than part of the list. */
+.ls-close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0 -4px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ls-text-faint);
+  cursor: pointer;
+}
+.ls-close:hover { background: #ffffff1a; color: var(--ls-text); }
+.ls-close:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: -1px; }
+
 .ls-empty {
   padding: 14px 8px;
   color: var(--ls-text-faint);
@@ -222,6 +241,7 @@ const CSS = `
 .ls-footer {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   flex: none;
   height: 28px;
@@ -234,14 +254,34 @@ const CSS = `
 
 /* Only shown while the rig has drifted from the file, so it reads as a state
    to clear rather than a label. Losing it is the confirmation of a save. */
+/* Pinned left, which is also what pushes the buttons right when it is here.
+   The bar ends flush right on its own when it is not. */
 .ls-state {
+  margin-right: auto;
   color: var(--ls-text-dim);
 }
+
+/* Quieter than Copy on purpose: it appears next to it, and the one that
+   discards your work should not be the one that draws the eye. */
+.ls-reset {
+  flex: none;
+  height: 18px;
+  margin: 0;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ls-text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+.ls-reset:hover { background: #ffffff1a; color: var(--ls-text); }
+.ls-reset:focus-visible { outline: 1px solid var(--ls-accent); outline-offset: 1px; }
 
 .ls-copy {
   flex: none;
   height: 18px;
-  margin: 0 0 0 auto;
+  margin: 0;
   padding: 0 8px;
   border: 0;
   border-radius: 3px;

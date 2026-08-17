@@ -29,8 +29,9 @@ import { injectStyles } from './styles'
 /** Leva's store is not a React value, so it crosses the root boundary as a prop. */
 type LevaStore = ReturnType<typeof useCreateStore>
 
-export function DebugUI({ levaStore, visible }: { levaStore: LevaStore; visible: boolean }) {
+export function DebugUI({ levaStore }: { levaStore: LevaStore }) {
   const store = useStudioStore()
+  const visible = useStudio((state) => state.visible)
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {

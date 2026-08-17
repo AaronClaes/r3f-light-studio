@@ -3,7 +3,7 @@ import { useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { LIGHT_DEFINITIONS, type LightType } from '../../core/schema'
 import type { StudioState } from '../../core/store'
 import { useStudio, useStudioStore } from '../context'
-import { EyeIcon, SoloIcon } from './icons'
+import { CloseIcon, EyeIcon, SoloIcon } from './icons'
 import { usePaint, type Paint, type PaintColumn } from './paint'
 import { Panel } from './Panel'
 
@@ -23,6 +23,7 @@ export function Outliner() {
   const ids = useStudio(selectIds)
   const soloIds = useStudio((state) => state.soloIds)
   const selectedId = useStudio((state) => state.selectedId)
+  const toggleHint = useStudio((state) => state.toggleHint)
   const store = useStudioStore()
 
   /** The row whose name is being typed into, if any. */
@@ -35,16 +36,32 @@ export function Outliner() {
     <Panel
       title="Lights"
       aside={
-        soloing ? (
+        <>
+          {soloing ? (
+            <button
+              type="button"
+              className="ls-solo-badge"
+              onClick={() => store.getState().clearSolo()}
+              title={`Showing only ${soloIds.length} of the lights. Click to show all.`}
+            >
+              {soloIds.length}
+            </button>
+          ) : null}
+
+          {/* On the top panel's header, so it reads as the corner of the whole
+              column rather than of the light list. Naming the key matters: the
+              editor keeps everything while hidden, and someone who closed it
+              from here has nothing else to tell them how to get it back. */}
           <button
             type="button"
-            className="ls-solo-badge"
-            onClick={() => store.getState().clearSolo()}
-            title={`Showing only ${soloIds.length} of the lights. Click to show all.`}
+            className="ls-close"
+            onClick={() => store.getState().setVisible(false)}
+            title={toggleHint ? `Hide the studio (${toggleHint})` : 'Hide the studio'}
+            aria-label="Hide the studio"
           >
-            {soloIds.length}
+            <CloseIcon />
           </button>
-        ) : null
+        </>
       }
     >
       {ids.length === 0 ? (

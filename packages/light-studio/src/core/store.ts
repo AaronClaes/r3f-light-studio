@@ -34,6 +34,25 @@ export interface StudioState {
   selectedField: VectorField
   /** Non-empty means "show only these". Never serialised. */
   soloIds: string[]
+  /**
+   * Whether the editor is on screen.
+   *
+   * Not a property of the rig, but it lives here anyway: the editor's DOM is
+   * rendered into a React root of its own exactly once, so a callback pushed
+   * in from the tree outside would freeze at that first render. Everything in
+   * that root reads this store instead, and hiding is now something the toggle
+   * key and a button in the panel can both ask for.
+   */
+  visible: boolean
+  /**
+   * What to call the toggle key on screen, or null when nothing is bound.
+   *
+   * Here for the same reason as `visible`: the close button needs it, the
+   * close button lives in the other root, and the store is the only thing that
+   * crosses. Hiding the editor from a button without saying how to get it back
+   * is a dead end.
+   */
+  toggleHint: string | null
   dirty: boolean
   past: LightSetup[]
   future: LightSetup[]
@@ -51,6 +70,10 @@ export interface StudioState {
    */
   setSolo: (id: string, on: boolean) => void
   clearSolo: () => void
+
+  setVisible: (next: boolean) => void
+  toggleVisible: () => void
+  setToggleHint: (hint: string | null) => void
 
   updateLight: (id: string, patch: LightPatch) => void
   addLight: (type: LightType) => string
@@ -113,6 +136,10 @@ export function createLightStudioStore(initial: LightSetup) {
       baseline: structuredClone(initial),
       ...NO_SELECTION,
       soloIds: [],
+      // Armed is not the same as shown: the editor exists from the moment
+      // `debug` is on, and the toggle key is what puts it on screen.
+      visible: false,
+      toggleHint: null,
       dirty: false,
       past: [],
       future: [],
@@ -131,6 +158,10 @@ export function createLightStudioStore(initial: LightSetup) {
         }),
 
       clearSolo: () => set({ soloIds: [] }),
+
+      setVisible: (next) => set({ visible: next }),
+      toggleVisible: () => set((state) => ({ visible: !state.visible })),
+      setToggleHint: (hint) => set({ toggleHint: hint }),
 
       updateLight: (id, patch) =>
         commit((draft) => {

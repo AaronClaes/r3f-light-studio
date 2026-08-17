@@ -31,6 +31,18 @@ export function ChevronIcon({ open }: { open: boolean }) {
   )
 }
 
+/**
+ * Puts the studio away. An X and not an eye: the eyes in the rows are about
+ * one light reaching the scene, and this is about the whole tool leaving.
+ */
+export function CloseIcon() {
+  return (
+    <svg {...SVG} aria-hidden>
+      <path d="M4 4 12 12M12 4 4 12" />
+    </svg>
+  )
+}
+
 /** Solo is a filled dot rather than an eye: it is a different kind of state. */
 export function SoloIcon({ on }: { on: boolean }) {
   return (

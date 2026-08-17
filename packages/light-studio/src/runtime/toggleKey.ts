@@ -37,6 +37,37 @@ export interface ToggleKey {
  */
 export const DEFAULT_TOGGLE_KEY: ToggleKey = { key: 'F2' }
 
+/**
+ * How to name the binding on screen, or null when there is nothing to name.
+ *
+ * The close button needs this. Hiding the editor from a button and giving no
+ * clue how to get it back is a dead end, and only the binding knows the answer.
+ */
+export function describeToggleKey(binding: ToggleKey | null): string | null {
+  if (!binding) return null
+
+  const raw = binding.key.toLowerCase()
+  // A single character is a letter to be capitalised; anything longer is
+  // already a name — 'F2', 'Escape' — and should be left as it was written.
+  const key =
+    KEY_LABELS[raw] ?? (binding.key.length === 1 ? binding.key.toUpperCase() : binding.key)
+
+  return binding.modifier ? `${MODIFIER_LABELS[binding.modifier]}+${key}` : key
+}
+
+const KEY_LABELS: Record<string, string> = {
+  backquote: '`',
+  escape: 'Esc',
+  space: 'Space',
+}
+
+const MODIFIER_LABELS: Record<NonNullable<ToggleKey['modifier']>, string> = {
+  meta: 'Cmd',
+  ctrl: 'Ctrl',
+  alt: 'Alt',
+  shift: 'Shift',
+}
+
 /** Binds `onToggle` to a keypress. Pass `null` to bind nothing at all. */
 export function useToggleKey(binding: ToggleKey | null, onToggle: () => void): void {
   // The listener is bound to the binding, not to the callback, which is a new

@@ -5,7 +5,7 @@ import { parseSetup } from '../core/parse'
 import type { LightSetup } from '../core/schema'
 import { LightRenderer } from './LightRenderer'
 import { RendererSettings } from './RendererSettings'
-import { DEFAULT_TOGGLE_KEY, useToggleKey, type ToggleKey } from './toggleKey'
+import { DEFAULT_TOGGLE_KEY, type ToggleKey } from './toggleKey'
 
 /** Separate chunk, so no editor code reaches a production bundle. */
 const DebugLayer = lazy(() => import('../debug/DebugLayer'))
@@ -54,23 +54,6 @@ export function LightStudio({
     setEdited(null)
   }, [parsed])
 
-  /**
-   * Whether the editor is on screen.
-   *
-   * Only ever a visibility flag: the editor stays mounted underneath, holding
-   * the store, so hiding it keeps every edit and the current selection. That
-   * is what makes this different from turning `debug` off, which unmounts the
-   * chunk the store lives in.
-   */
-  const [shown, setShown] = useState(false)
-
-  useToggleKey(debug ? toggleKey : null, () => setShown((wasShown) => !wasShown))
-
-  // Disarming puts it away, so arming it again starts from the same place.
-  useEffect(() => {
-    if (!debug) setShown(false)
-  }, [debug])
-
   const live = edited ?? parsed
 
   // Solo is a way of looking at a rig rather than a property of one, so it
@@ -88,10 +71,17 @@ export function LightStudio({
 
   // Mounted whether or not it is shown, so the store outlives a keypress and
   // the chunk is already there when you ask for it. The fallback keeps the
-  // scene lit while that chunk loads.
+  // scene lit while that chunk loads. Whether it is shown is the store's
+  // business now — it starts hidden, and disarming discards the store with it,
+  // so arming again starts from the same place.
   return (
     <Suspense fallback={rig}>
-      <DebugLayer applyRenderer={applyRenderer} onExit={setEdited} setup={live} visible={shown} />
+      <DebugLayer
+        applyRenderer={applyRenderer}
+        onExit={setEdited}
+        setup={live}
+        toggleKey={toggleKey}
+      />
     </Suspense>
   )
 }
