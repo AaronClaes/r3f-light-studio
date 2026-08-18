@@ -1,6 +1,7 @@
 {
   "name": "r3f-light-studio-workspace",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "turbo run dev",
