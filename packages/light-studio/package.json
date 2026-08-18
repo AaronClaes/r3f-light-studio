@@ -2,6 +2,10 @@
   "name": "r3f-light-studio",
   "version": "0.0.0",
   "private": true,
+  "files": [
+    "dist",
+    "src"
+  ],
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -24,6 +28,7 @@
     "access": "public"
   },
   "scripts": {
+    "build": "tsup && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -40,6 +45,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "three": "catalog:",
+    "tsup": "^8.5.1",
     "typescript": "catalog:",
     "vite": "catalog:"
   },

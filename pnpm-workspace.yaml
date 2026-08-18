@@ -20,3 +20,7 @@ catalog:
   typescript: 7.0.2
   vite: 8.2.1
   zustand: 5.0.15
+
+# tsup builds the package, and esbuild links its native binary from a postinstall.
+onlyBuiltDependencies:
+  - esbuild

@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "declarationMap": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    // The Vite plugin names a `.ts` on its one relative import, which must not
+    // survive into a `.d.ts` a consumer reads.
+    "rewriteRelativeImportExtensions": true
+  }
+}
