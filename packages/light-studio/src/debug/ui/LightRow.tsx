@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 
 import { findLight } from '../../core/lights'
 import { LIGHT_DEFINITIONS, type LightType } from '../../core/schema'
@@ -126,6 +126,13 @@ function NameInput({
   onCancel: () => void
 }) {
   const [draft, setDraft] = useState(value)
+  const input = useRef<HTMLInputElement>(null)
+
+  // On open only. A ref callback runs again on every render, so each keystroke
+  // reselected the name and the next one typed over it.
+  useEffect(() => {
+    input.current?.select()
+  }, [])
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') onCommit(draft.trim())
@@ -136,7 +143,7 @@ function NameInput({
     <input
       className="ls-name-input"
       value={draft}
-      ref={(node) => node?.select()}
+      ref={input}
       onChange={(event) => setDraft(event.target.value)}
       onKeyDown={onKeyDown}
       onBlur={() => onCommit(draft.trim())}
