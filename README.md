@@ -1,15 +1,50 @@
 # r3f-light-studio
 
-A `<LightStudio />` component for react-three-fiber. One JSON file describes your
-whole lighting rig — lamps, an environment, and the lightformers drawn into it
-— and the component renders it in production and, with `debug`, turns into an
-editor for it.
+A lighting rig for react-three-fiber, described by one JSON file and editable in
+the browser.
 
-Scope is deliberately narrow: **only the lights you pass in**. Not a scene
-editor (that's [Triplex](https://triplex.dev)), not an animation tool (that's
+`<LightStudio />` renders your lights in production. Pass `debug` and the same
+component becomes an editor: click a light, drag it, tune every field, then press
+`Cmd+S` to write the JSON back to disk.
+
+Scope is deliberately narrow: only the lights you pass in. This is not a scene
+editor (see [Triplex](https://triplex.dev)) and not an animation tool (see
 [Theatre.js](https://www.theatrejs.com)).
 
+## Thanks
+
+This is a thin layer over [pmndrs](https://github.com/pmndrs) amazing work.
+[react-three-fiber](https://github.com/pmndrs/react-three-fiber) renders it,
+[drei](https://github.com/pmndrs/drei) supplies the environment, the lightformers
+and the transform gizmo, [leva](https://github.com/pmndrs/leva) is the properties
+panel, and [zustand](https://github.com/pmndrs/zustand) holds the editor state.
+Almost none of the hard parts are mine.
+
+## Install
+
+```bash
+npm install r3f-light-studio leva
+```
+
+`leva` hosts the properties panel and is a required peer, even if you never open
+the editor. The rest are peers you will already have.
+
+| Peer                 | Version                              |
+| -------------------- | ------------------------------------ |
+| `react`, `react-dom` | `>=19`                               |
+| `three`              | `>=0.180`                            |
+| `@react-three/fiber` | `>=9`                                |
+| `@react-three/drei`  | `>=10`                               |
+| `leva`               | `^0.10`                              |
+| `vite`               | `>=5` (optional, for saving to disk) |
+
+## Quick start
+
 ```tsx
+import { Canvas } from '@react-three/fiber'
+import { OrbitControls } from '@react-three/drei'
+import { LightStudio } from 'r3f-light-studio'
+
 import setup from './lights.json'
 
 export function Scene() {
@@ -23,869 +58,24 @@ export function Scene() {
 }
 ```
 
-Press **`F2`** to bring the editor up, and again to put it away. It stays up
-across reloads until you close it.
-
-## Status
-
-The editor lets you pick things in the rig, move them, edit every field, add
-and remove lights, and `Cmd+S` writes the result back over the file it came
-from. The loop is closed:
-tweak the lights, save, commit the diff. Without the Vite plugin it hands the
-JSON back through the clipboard instead, and edits live in memory until you
-reload — surviving being put away and turning `debug` off, since neither throws
-your work out.
-
-- [x] Schema, parser and omit-defaults exporter
-- [x] Zustand store with history, solo and selection
-- [x] Renderer — all six light types, targets, shadows
-- [x] Debug helpers — a wireframe per light, drawn from the config
-- [x] Selection — click a light, or the point it aims at
-- [x] Gizmo — drag the selected point, one undo step per drag
-- [x] Properties panel — every field of the selected light
-- [x] Outliner — the rig as a list, with rename, on/off and solo
-- [x] Toggle key — the editor is armed by `debug`, shown by a keypress
-- [x] Keyboard undo/redo
-- [x] Copy the rig back out as JSON, formatted for the file it came from
-- [x] Vite dev-server writeback — `Cmd+S` writes the file in place
-- [x] Add, duplicate and delete lights — the rig's shape, not just its values
-- [x] Environment — an HDRI, lightformers drawn into it, or both
-- [x] Workspaces — fork the rig, work in versions side by side, `file` stays put
-- [x] Grey mode — take the colour out of the scene and look at the light
-- [ ] Fit shadow camera to the scene bounds
-
-## Layout
-
-```
-apps/playground/            test scene
-packages/light-studio/
-  src/core/                 schema, lights, parse, serialize, store — no r3f, no UI
-  src/core/save.ts          the contract the plugin and the editor both import
-  src/vite/                 the dev-server plugin — Node only, never bundled
-  src/runtime/              LightStudio, LightRenderer, toggleKey — the production path
-  src/debug/                lazy-loaded editor chunk
-  src/debug/historyKeys.ts  Cmd+Z and Cmd+Shift+Z, bound while the editor shows
-  src/debug/lightKeys.ts    Cmd+D and Delete, on the selected light
-  src/debug/exportSetup.ts  how the file looks — printing, not what goes in it
-  src/debug/drawnLights.ts  which lights the editor draws anything for
-  src/debug/helpers/        wireframes, built from the config
-  src/debug/panel/          leva controls, built from the config
-  src/debug/ui/             the editor's DOM — panels, outliner, drag-paint, styles
-```
-
-`core/schema.ts` describes each light type exactly once, in `LIGHT_DEFINITIONS`.
-The TypeScript types, the parser's coercion, the serialiser's default-stripping,
-which handles a light gets and which controls the panel shows all derive from
-that one object, so adding a light type means editing a single place.
-
-Two rules keep this honest:
-
-1. `core` never imports Leva or drei.
-2. `runtime` reaches `debug` only through `React.lazy`, so nothing in the
-   editor can reach a production bundle. Verified in the build output — the
-   debug chunk is emitted separately.
-
-## Why the schema isn't three's `toJSON`
-
-`Object3D.toJSON()` is a wire format. It stores transforms as 16-float
-matrices, colours as integers, and regenerates UUIDs on every export, so every
-save produces a full-file diff. It also references a light's `target` by UUID,
-which means a target missing from the exported graph silently reloads at the
-origin rather than erroring.
-
-This file is committed, hand-edited and reviewed, so it uses named vectors and
-hex strings instead. What it _does_ borrow from three: property names and units
-verbatim (`intensity`, `decay`, `penumbra`, `normalBias`, `mapSize`), and the
-omit-defaults discipline from `LightShadow.toJSON` — exports contain only what
-was actually authored.
-
-An `Object3D`-format export is a possible v2 feature, as a one-way adapter.
-
-## Schema notes
-
-- **Aiming is a point, not a rotation.** Directional and spot lights store
-  `target: [x, y, z]`. The `Object3D` three needs is created and parented for
-  you. Rotating a light to aim it is unintuitive and rotation is meaningless
-  for point lights.
-- **Shadow shape follows the shadow camera.** Directional lights carry
-  orthographic `frustum` bounds; point and spot lights use a perspective shadow
-  camera and have no `frustum` field at all.
-- **Intensities assume physically-correct lighting** (three >= r155). Point and
-  spot values are in the tens, not around 1.
-- **Tone mapping and exposure are not in the schema**, and the studio never
-  touches the renderer. They belong to `<Canvas gl={{ toneMappingExposure }} />`
-  — see below.
-- **Solo is not in the schema.** It's a way of looking at a rig, not a property
-  of one, so it lives in the store and never serialises.
-- **A lightformer is a light type, the environment is not.** Lightformers sit
-  in `lights` like everything else — same id, same colour, same position and
-  target, same gizmo. `environment` is a single top-level block, because there
-  is exactly one of it and it has nowhere to be.
-- Defaults are omitted on write. `parseSetup` fills them back in and never
-  throws — malformed input yields warnings, not a black scene.
-
-### The renderer belongs to `<Canvas>`
-
-A setup used to carry `renderer: { toneMapping, exposure }`, and `<LightStudio>`
-applied it to the `WebGLRenderer` on mount and restored the previous values on
-unmount. That is gone.
-
-`gl.toneMapping` has one sensible owner and it is the canvas. Writing it from a
-component that mounts and unmounts means restoring a value captured on mount,
-which is already stale if the app changed its own in between — and the
-`applyRenderer={false}` escape hatch made the conflict optional rather than
-absent. A rig that quietly overrides the look your `<Canvas>` asked for is
-worse than one that has no opinion:
-
-```tsx
-<Canvas gl={{ toneMappingExposure: 1.1 }}>
-```
-
-A file that still has a `renderer` block parses fine and warns once, saying
-where the setting went. It is dropped on the next save.
-
-## The environment
-
-A rig is not only lamps. Most of what makes a render look real is what the
-scene can see in every direction, and that is a separate block:
+A minimal `lights.json`:
 
 ```json
 {
-  "environment": {
-    "preset": "city",
-    "intensity": 0.4
-  },
+  "version": 1,
   "lights": [
-    {
-      "id": "softbox",
-      "type": "lightformer",
-      "color": "#eaf2ff",
-      "intensity": 3,
-      "position": [0, 3.5, 3],
-      "target": [0, 1, 0],
-      "width": 5,
-      "height": 3
-    }
+    { "id": "key", "type": "directional", "intensity": 3, "position": [4, 6, 3] },
+    { "id": "ambient", "type": "ambient", "intensity": 0.2 }
   ]
 }
 ```
 
-Three sources, and they layer. `preset` is one of drei's ten hosted HDRIs,
-`files` is a path to your own `.hdr` or `.exr`, and a **lightformer** is a
-shape drawn into the environment on top of whichever of those you used. That
-last one is the reason this exists: a lightformer is what a studio softbox
-actually is — a big soft emitter you see in the reflections — and a `rectArea`
-light only approximates it.
+Press `F2` to open the editor. It starts hidden, stays open across reloads for
+the life of the tab, and leaves the scene untouched while closed.
 
-`intensity` and `rotation` are `scene.environmentIntensity` and
-`scene.environmentRotation` — how much the environment lights, and which way it
-faces. `resolution` is the cube map the lightformers are drawn into; higher is a
-sharper reflection and a slower editor. Whether any of it is _visible_ is the
-separate `background` block below.
+## Saving to disk
 
-### A lightformer is a light
-
-It goes in `lights` with everything else, and gets everything else for free:
-the outliner row, the eye and the solo, rename, `Cmd+D`, `Delete`, the
-properties panel, the drag handles and the gizmo. `LightRenderer` pulls them
-out of the array at the last moment, because drei needs them as children of
-`<Environment>` rather than as nodes in your scene.
-
-It has one field no other light has — `form`, one of `rect`, `circle`, `ring`
-or `box` — and its `width` and `height` are the same two numbers a `rectArea`
-light takes.
-
-### Meshes the rig cannot describe
-
-Lightformers add light. The other half of lighting is taking it away, and that
-is a mesh — a flag in front of a softbox, a cutter, a gobo. The rig cannot hold
-one: a mesh is geometry _and a material_, and a material is not JSON. Rather
-than grow a scene format to reach the useful 5% of one, there is a slot:
-
-```tsx
-<LightStudio setup={rig} debug>
-  <LightStudio.Environment>
-    <mesh position={[1.5, 1.9, 1.6]}>
-      <planeGeometry args={[2.4, 3.6]} />
-      <meshBasicMaterial color="black" side={DoubleSide} />
-    </mesh>
-  </LightStudio.Environment>
-</LightStudio>
-```
-
-Its children go where the lightformers go: into the cube map, beside them.
-
-**Children of `<LightStudio>` are a routing table, not a payload.** Letting bare
-children mean "put these in the environment" would spend the slot on one
-meaning, and on a surprising one — children normally render where the component
-is, so a mesh put there expecting your scene would land in an offscreen cube
-camera and never be seen. Naming the slot leaves room for a second one later
-without changing what the first meant. Anything unrecognised is dropped with a
-warning that says where it should have gone. Fragments are descended into, so
-the usual way a compound component loses a slot does not apply here.
-
-Two things about this are not obvious and will cost you an afternoon:
-
-- **The environment is rendered from a single point at the origin.** A flag only
-  cuts what it covers _from there_, not from your camera. Put it on the line
-  between the origin and the lightformer or it does exactly nothing. The one in
-  the playground takes about a third of the softbox; slide it sideways and it
-  takes none of it while still looking perfectly reasonable in your editor.
-- **`meshBasicMaterial` is `FrontSide` by default**, and a culled face occludes
-  nothing. A plane at `+Z` shows the camera at the origin its _back_. Use
-  `DoubleSide` unless you are sure which way it faces.
-
-The contents are the app's, so the editor leaves them entirely alone: no
-wireframe, no outliner row, no gizmo, nothing written to the file. They are
-hidden along with the environment when its eye is off, and dropped by ground
-projection exactly as lightformers are — with the same warning, raised at
-runtime rather than by `parseSetup`, which only ever sees the file.
-
-### The backdrop
-
-An environment can also be the thing you see, not only the thing that lights:
-
-```json
-"background": { "enabled": true, "blur": 0.4, "intensity": 1, "rotation": [0, 0, 0] }
-```
-
-which is `scene.background` plus `backgroundBlurriness`, `backgroundIntensity`
-and `backgroundRotation`. This is the one place the rig writes something outside
-the lights, and unlike tone mapping it earns it: without it there is no way to
-ship a rig's environment as a backdrop. An app would have to name the same
-`preset` a second time in its own `<Environment background="only" />`, which
-silently stops matching the moment you change it here — and for a rig built out
-of lightformers it is not merely duplicated but impossible, because the app
-cannot reproduce the cube map they are drawn into.
-
-The four are only sent to three while `enabled`. A rig that is purely lighting
-writes none of them, rather than putting a `backgroundBlurriness: 0` over a
-background the app set for itself. (drei still snapshots and restores those
-values around its own effects, so this is "the rig does not write them", not a
-guarantee that nothing else will.)
-
-### Seeing what you are aiming
-
-A lightformer is only ever visible in reflections, so the editor draws its real
-shape and size as a wireframe in the scene: a rectangle, an ellipse, a ring of
-two, a box. That is what the gizmo attaches to, and it is there whether the
-environment is on or not.
-
-Next to the environment's eye and solo there is a third toggle that puts the
-environment behind the scene. It is **an override, not the setting** — whether
-the backdrop ships is `background.enabled` above. This exists because turning a
-backdrop on to _look_ at a lightformer and turning it on to _keep_ it are
-different intentions, and only one of them should dirty the file. It is editor
-state like solo: never written, and it goes away with the studio. Once the rig
-shows a backdrop of its own the button has nothing left to do, so it says so
-rather than offering a switch that cannot switch anything off.
-
-### Ground projection replaces the lightformers
-
-`ground` wraps the environment image around the horizon so your floor reflects
-it. drei's `<Environment>` is four components behind one name and picks between
-them by which props it was given, with `ground` first — so with it on, the
-children are dropped and your lightformers do nothing. Both stay in the schema
-and `parseSetup` says so out loud rather than leaving you to find out:
-
-```
-[LightStudio] Ground projection replaces 1 lightformer: drei's <Environment>
-renders one or the other. Turn the environment's ground off to see them.
-```
-
-It also needs an image to project, and warns when there is a ground with no
-`preset` and no `files`. Anything in `<LightStudio.Environment>` goes the same
-way, and gets its own warning from `EnvironmentRig`.
-
-### What this costs
-
-`runtime/EnvironmentRig.tsx` is the only file on the production path that
-imports drei, and through drei, `three-stdlib`. Everything else in `runtime/`
-builds three objects r3f already knows about. drei is a **peer** dependency
-rather than a plain one — nearly every app using this has it already, and two
-copies would mean two environment-texture caches.
-
-An environment with no preset, no files and no lightformers renders nothing at
-all, and strips to nothing on save, so a rig that never asked for one has no
-`environment` key in its file. The import is still in the bundle; if that
-matters, `EnvironmentRig` is one file and one `lazy()` away from not being.
-
-Editing is cheap: drei's `frames` stays at its default of `1`, so the cube map
-is re-rendered once per change and not at all while you are idle.
-
-## Arming it, and showing it
-
-`debug` and the toggle key answer different questions. **`debug` decides
-whether the editor exists; the key decides whether you are looking at it.** A
-rig you are not editing right now should not have a panel sitting over your
-scene, and a rig you might edit in a moment should not cost a reload to reach
-— so the usual setup is `debug={import.meta.env.DEV}` and a keypress.
-
-Armed, the editor starts **hidden**. Put away it is not merely transparent:
-the panels, the wireframes, the handles and the gizmo are all gone and the
-scene renders exactly as it does in production. What stays is the store, so
-every edit, your selection and even a half-typed rename are still there when
-you bring it back. That is the difference from turning `debug` off, which
-unmounts the chunk the store lives in and has to hand the rig back on the way
-out.
-
-**A reload is not a decision, so it does not close the editor.** Showing it
-writes a flag to `sessionStorage`, and a page that finds one comes up with the
-editor already open — seeded into the store before the first render, so there
-is no blink. Closing it clears the flag. It is `sessionStorage` rather than
-`localStorage` deliberately: this survives the dozen reloads an hour a dev
-server costs you and dies with the tab, so a page opened fresh still starts
-hidden and the rule above stays true for anyone who did not just close it. The
-flag is keyed by the `id` prop, so two rigs on one page remember themselves
-separately. Nothing else survives a reload — the edits are still in memory
-only, and that is what `Cmd+S` is for.
-
-The key is yours to pick:
-
-```tsx
-<LightStudio setup={setup} debug />                                       // F2
-<LightStudio setup={setup} debug toggleKey={{ key: 'Backquote' }} />
-<LightStudio setup={setup} debug toggleKey={{ modifier: 'meta', key: 'd' }} />
-<LightStudio setup={setup} debug toggleKey={null} />                      // no binding
-```
-
-**F2 is the default because it is in the same place on every keyboard.**
-Backtick is the older convention — the debug console since Quake — and it is
-still the better key if your team is all on ANSI boards. It is a poor default,
-though: on the ISO layouts most of Europe types on it moves from under Esc to
-the left of Z, and on several it is a dead key you press twice. A key whose
-whole job is to stay out of the way should not be one you hunt for. F2 also
-has no text-field hazard at all, and nothing in any browser claims it — unlike
-`Cmd+Shift+D`, which bookmarks all your tabs.
-
-Three details in the binding are load-bearing:
-
-- **`key` is matched against `KeyboardEvent.code` _and_ `.key`**, case
-  insensitively, so `'Backquote'`, `'F2'` and `'d'` all work. Matching `code`
-  is what keeps backtick working on layouts where it is a dead key — there
-  `.key` arrives as `'Dead'` and a `.key`-only binding quietly stops firing.
-- **A keypress inside a text field belongs to the field.** F2 is safe either
-  way, but leva's panel is mostly inputs and the outliner renames in place, so
-  binding a bare letter or backtick without this would close the editor
-  mid-word.
-- **The modifier must match exactly.** With a bare `Backquote`, Shift+`` ` ``
-  types a tilde and does nothing else.
-
-There is also an **×** in the corner of the `Lights` header, which does exactly
-what the key does. Its tooltip names the binding — `Hide the studio (F2)` —
-because the editor keeps everything while hidden and someone who closed it from
-a button has nothing else on screen to tell them how to get it back.
-
-**Whether the editor is showing lives in the store**, not in `<LightStudio />`.
-The editor's DOM is rendered into a React root of its own exactly once, so a
-callback handed in from the tree outside would freeze at that first render. The
-store is the one thing that crosses the boundary, so anything the panels need
-from outside — the visibility flag, the name of the toggle key — goes through
-it. The binding is therefore made in the debug chunk, and a keypress in the
-few milliseconds before that chunk loads does nothing; there is no editor to
-show yet either.
-
-## Undo
-
-`Cmd+Z` and `Cmd+Shift+Z`, or `Ctrl+Z` and `Ctrl+Y`. Both platforms' modifiers
-are accepted, so one build behaves natively on either. Unlike the toggle key
-these are **not configurable**: undo is the one binding that is the same in
-every application everywhere, so there is nothing here anyone wants to rebind.
-
-The store has had `undo`/`redo` and a history stack since the beginning, and
-every editing gesture already collapses into exactly one entry — a gizmo drag,
-a slider scrub and a drag-painted row of switches are each a single step. This
-is only the keyboard reaching it.
-
-- **Bound only while the editor is on screen.** Put away, the studio is not
-  what you are editing and `Cmd+Z` belongs to the app around it.
-- **A keypress in a text field is the field's.** The rig does not move, and
-  `preventDefault` is not called either, so the browser's own undo still works
-  on the half-typed name in front of you.
-- **Ignored while a drag or a slider scrub is open.** The snapshot the
-  transaction took is what gets pushed when it ends, so rewinding underneath
-  it would record a step that never happened.
-- **`Cmd+Y` is deliberately not redo.** `Ctrl+Y` is the Windows habit, but on
-  a Mac `Cmd+Y` belongs elsewhere — in Firefox it opens the history window.
-- **Z is matched by physical position _and_ produced character.** `code` alone
-  misses Dvorak, where the OS routes `Cmd+Z` by character and the physical key
-  is somewhere else entirely.
-
-## Workspaces
-
-A strip over the outliner. Until you have done anything it is just this:
-
-```
-file  +
-```
-
-**`file` is read-only, and it is the original.** Not a workspace holding your
-working copy of the file — the actual contents of the file, always, which makes
-it the one thing you can reliably get back to. It is the store's `baseline`
-rather than an entry in a list, so it needs no storage, cannot drift, cannot be
-deleted, and shows the new contents the moment you save.
-
-**Editing while you are on it forks.** Open the editor, drag a light, and a
-workspace appears with your edit in it:
-
-```
-file  1●  +
-```
-
-That is the whole point of forking rather than refusing: the first thing anyone
-does still works, and the file stays untouched. `+` does the same deliberately,
-from whatever is in front of you.
-
-**A workspace is somewhere you work, not a copy you set aside.** You are in one,
-and whatever you edit goes to the one you are in. Digits go straight to a chip —
-`0` is `file` — and only chips that exist are drawn.
-
-The first attempt at this was snapshots: nine numbered slots, an empty one _took_
-and a full one _restored_, `Shift+N` overwrote. Every one of those rules existed
-because the model was subtle, and a row of nine identical digits could not answer
-the first question anyone asked of it, which was what the numbers meant. Being
-_in_ a place needs no rules, and exactly one chip is ever lit.
-
-**Switching is never destructive, in either direction.** Leaving a workspace
-parks it — its setup _and its undo history_ — so coming back finds the work and
-the steps that got you there. `Cmd+Z` in one never rewinds another's, and there
-is nothing in `file` to lose.
-
-**`dirty` still means "differs from the file".** Where you are and how far you
-have drifted from disk are independent, `Cmd+S` still writes what you are looking
-at, and `Reset` still discards this workspace's edits — which is a different act
-from looking at the original, so both survive. Switching recomputes `dirty` by
-comparing what the exporter would emit, so a workspace that happens to hold
-exactly the file's contents reports clean rather than offering a Reset with
-nothing to reset.
-
-**What you give up** is that a workspace degrades as you keep working in it —
-there is no "workspace 1 as it was an hour ago". Forking is the answer, so the
-habit is _fork before you fiddle_, the same one branches already teach. Undo
-covers the rest, and `file` is always exactly where you left it.
-
-### Where they live
-
-`sessionStorage`, keyed by the same `id` the save target uses, so two rigs on a
-page keep their own. Same reasoning as the visibility flag: a reload is not a
-decision, and losing every version you had on the go to a refresh would make them
-no use for what they are for.
-
-**Dying with the tab is the other half of that, on purpose.** A workspace is
-somewhere you are working _now_. The way to keep one is to switch to it and save,
-which puts it in the file — so there is no third tier, and two looks that both
-need to ship are two JSON files and the `id` prop, which the plugin already
-supports. `localStorage` would buy permanence and pay for it in staleness: an
-unnamed, invisible copy from three weeks ago, taken against a rig that has since
-moved on.
-
-Neither the file nor any undo history is stored — the first is `baseline` and
-arrives through the `setup` prop anyway, and a reload has always emptied the undo
-stack.
-
-Two details follow from the live setup belonging to a workspace:
-
-- **The write is debounced.** Unlike the visibility flag, the trigger is every
-  keystroke and every frame of a drag, so writes coalesce to one 400ms after the
-  movement stops rather than serialising the whole rig sixty times a second.
-- **The active workspace's parked copy is deliberately stale**, because its real
-  state is the store's own. The persistence layer substitutes the live setup when
-  it serialises, rather than making the store write to itself on every change.
-
-Stored through `serializeSetup` and read back through `parseSetup`, so what lands
-in storage is the same defaults-stripped shape the file gets and a workspace left
-by an older build cannot put a malformed setup into the store. Parse warnings are
-dropped rather than logged: a console full of complaints about a workspace you
-have not opened yet is worse than one quietly missing a field.
-
-## Debug helpers
-
-The wireframes are drawn from the config, not from three's `SpotLightHelper` and
-friends. That means the debug layer never touches the rendered lights: no ref
-plumbing out of `LightRenderer`, no `.update()` calls to keep in sync, and a
-helper that can be drawn for a light that is switched off — which is what makes
-selecting one from the outliner useful. It also means the emphasis below is
-ours to control rather than three's.
-
-- **Ambient lights have no helper.** They have neither a position nor a
-  direction; there is nothing honest to draw. They are reachable from the
-  outliner.
-- **A spot cone ends at `distance`**, or at the target when `distance` is 0.
-  A point light's `distance` draws as three faint circles.
-
-### What gets drawn
-
-A light that is not lighting anything is not drawn at all. Switch it off, or
-mute it under someone else's solo, and its wireframe and its handles go with
-it. Dimming them instead was the earlier behaviour, justified by
-keeping an off light findable — the outliner does that now, and a rig of faint
-shapes for things that are doing nothing is just noise.
-
-**The selected light is the exception, and is always drawn.** Selecting an
-off light has to show you where it is, or the gizmo would attach to a point
-with nothing to grab.
-
-### Emphasis
-
-Of what is drawn, only the selected light draws at full strength, the way
-Blender does it. Turning `debug` on used to light up every cone and beam at
-once, which is overwhelming on a rig of any size.
-
-|              | when                                                |
-| ------------ | --------------------------------------------------- |
-| **selected** | full strength, in the light's own colour            |
-| **idle**     | visible enough to read the rig, well out of the way |
-
-Each is a multiplier over a per-role base, so a beam is always quieter than the
-shape it belongs to and a falloff radius quieter still — the radius is the
-biggest thing on screen and would otherwise dominate. Handles are deliberately
-exempt: they stay legible at both levels, because they are how you find a light
-in order to select it in the first place.
-
-## Selection
-
-Every light has a grabbable handle, and the light you have selected gets a
-second one on its target. Which handles exist is derived from the schema
-rather than from a per-type switch: a light gets one for each vector field it
-declares. Ambient is the exception — it has no vector fields, so it has no
-handle and is selected from the outliner.
-
-**A target only appears for the selected light.** Unselected, it is a
-redundant place to click: the only useful half of that click is "select this
-light", which the light's own handle and the outliner both already do. What it
-costs is real — most rigs aim at the origin, so a dozen targets stack into one
-bright blob there, and every one of them doubles a light's footprint on
-screen. Nothing is hidden by this: the beam still runs out to the target, so
-where a light points reads the same. You just pick the light up before you
-move the far end of it.
-
-The two are drawn differently, because they are different kinds of point. A
-light is a dashed ring around a small diamond, borrowed from Blender's light
-gizmos. A target is a bare reticle — four arms with a gap in the middle, no
-ring — so the two never read as the same thing even side by side, and the
-lesser of the two sits lighter on screen.
-
-A handle billboards to the camera, so it reads as a ring from every angle
-instead of collapsing into an ellipse, and holds a constant size on screen so
-it stays grabbable whether you are up against a light or looking at the whole
-rig. It ignores depth, so a light behind your geometry can still be picked,
-and an invisible sphere slightly larger than the ring does the actual
-hit-testing.
-
-The dashes are baked into the geometry rather than drawn with
-`LineDashedMaterial`. That material measures dash length in local units, and a
-handle rescales every frame to hold its screen size — real dashes would stretch
-and crawl as you moved the camera.
-
-Selecting a light brightens its handles; only the one the gizmo is
-driving turns white and grows. Clicking empty space deselects. The store tracks
-_which_ handle is selected, not just which light, because the gizmo needs to
-know whether you grabbed the light or its target.
-
-## The gizmo
-
-Translate only, via drei's `TransformControls`. The schema aims a light by
-moving a target, so a rotate ring would be editing a field the format does not
-have, and rotation is meaningless for a point light anyway. Drag the light's
-handle to move it; drag the reticle that appears at its target to re-aim it.
-
-**A drag is one undo step.** The store has a transaction: `beginTransaction`
-snapshots the setup, every edit until `endTransaction` mutates freely without
-touching the history, and the single entry is pushed on release. A drag that
-ends where it started records nothing at all. Scrubbing a slider in the
-properties panel works the same way.
-
-Two details worth knowing:
-
-- **A tap on the gizmo does not deselect.** r3f reports a click as a "miss" on
-  every object it did not hit, and the gizmo is not one of r3f's objects — so
-  without help, tapping an axis would clear the selection the gizmo is attached
-  to. The gizmo claims the click that follows a press it did not turn into a
-  drag, and the deselect handler honours that claim.
-- **Deselect lives on one object, not on every handle.** `onPointerMissed`
-  fires once per un-hit object, so putting it on each handle would run the
-  deselect once per handle — and the gizmo's claim would be consumed by the
-  first one while the rest still cleared the selection.
-
-## The editor UI
-
-Two panels in a column on the right, after Blender: an **outliner** listing the
-rig, and a **properties** panel for whichever light is selected. Splitting them
-is what keeps either one legible — a ten-light rig shown as ten folders of
-controls is a wall, and a property inspector on its own gives you nowhere to
-see the rig as a whole.
-
-Both collapse from their headers, down to a title bar each, for when you want
-to look at the scene rather than at the tool. A collapsed section is **hidden,
-not unmounted**: leva hands its panel back to its own floating root the moment
-the last one unmounts, so collapsing the properties would otherwise spawn a
-second panel in the corner. It also means a half-typed rename survives.
-
-### It mounts its own React root
-
-`<LightStudio />` is used inside `<Canvas>`, so the reconciler around it is
-r3f's: it builds THREE objects, and a `<div>` in that tree throws.
-`createPortal` does not help either, because a portal still renders through the
-reconciler that created it. So the editor does what drei's `<Html>` does —
-opens a second React root on a real DOM node.
-
-The two roots share state without any plumbing because the studio store is a
-vanilla zustand store behind a context rather than a hook. The same object is
-provided to both trees.
-
-### The outliner
-
-One row per light: a colour swatch, its name, its type, and two toggles. It
-owns the three things that are about a light rather than about its lighting —
-its name (double-click to rename), whether it is **on**, and whether you are
-looking at it **alone**.
-
-A shadow column was tried here and taken out again: three toggles in a 24px
-row is more than the list can carry, and a rig is read by scanning names.
-Casting is a property of a light, so it belongs in the properties panel — see
-below for where it sits there.
-
-The two toggles are deliberately not the same kind of thing, and are drawn
-differently to say so. `enabled` is a schema field and is written to the file.
-Solo is a way of looking at a rig, lives only in the store and never
-serialises, so it is amber and the header grows a badge that clears it.
-
-**Press a toggle and drag along the column** to set every row you pass, the way
-Blender's outliner works. Three things make the gesture behave:
-
-- It **copies** the value the first toggle became rather than flipping each row
-  in turn, so dragging back over a row you have already reached leaves it
-  alone. That is what lets you correct an overshoot without undoing your work.
-- It fills in the rows **between** two pointer positions. A fast drag skips
-  elements outright — the browser reports only the ones a move happens to land
-  on — so following the events alone would leave holes in the middle of a
-  stroke.
-- The whole stroke is **one undo step**, bracketed by the same store
-  transaction a gizmo drag uses. A solo stroke opens one too, and closes having
-  recorded nothing, because solo never reaches the setup.
-
-The store has `setSolo(id, on)` rather than a toggle for exactly this reason: a
-stroke has to be able to repeat a value over a row without flipping it back.
-
-It is also how you reach an ambient light. They have no position, so no handle,
-so before this the only way to select one was a dropdown.
-
-**The environment sits above the lights**, always, as a fixture rather than a
-row: you cannot add or remove it, only switch it on. It has an eye and a solo
-like any light, plus the backdrop override in the slot a light spends on its
-type label — permanently, not on hover, because a lightformer is invisible until
-you switch that on and a control you cannot see is no help discovering it.
-
-#### Changing the rig, not just its values
-
-The **+** in the header opens the list of types; picking one adds it, selects
-it, and puts the gizmo on it, so the next thing you do can be dragging it. A
-new light lands on its type's default position — `[5, 5, 5]` for a directional,
-`[0, 4, 0]` for a spot — rather than at the origin, which is usually inside the
-subject. It serialises to two lines, because everything else about it still
-matches the defaults the exporter omits:
-
-```json
-{ "id": "spot", "type": "spot" }
-```
-
-**Duplicate and delete take the type label's place** on the row you are
-pointing at, and on the selected row. Six controls do not fit in 280px, and the
-label is the one thing there that the swatch, the name and the properties panel
-all repeat — the swap costs the name nothing. From the keyboard it is `Cmd+D`
-and `Delete`, on the selected light, bound only while the editor shows and
-ignored while you are typing in a field.
-
-**Nothing here asks you to confirm.** Both go through the store's single write
-path, so both are one undo step, and `Cmd+Z` is a better answer to one mistaken
-delete than a dialog is to every deliberate one. Deleting clears the selection
-rather than moving it to a neighbour, which is also what stops a held `Delete`
-from walking through the rig.
-
-### Grey mode
-
-The sphere in the panel header paints every mesh in the scene one neutral grey.
-Colour is the loudest thing in a frame, and while you are placing light it is
-mostly in the way — a red wall reads as a bright wall. Take it away and what is
-left is shape and shading, which is what a rig is made of.
-
-18% grey, metalness 0, roughness 0.5. The grey is the card every other trade
-meters against. Half rough because the two extremes each hide half the answer:
-mirror-smooth is all reflection and no form, fully matte kills the speculars,
-and where a source lands on a surface is the thing you are looking for. It is
-`DoubleSide` so a plane with its back turned does not vanish — a diagnostic view
-that deletes geometry is worse than one that shows a face the app would have
-culled.
-
-A way of looking, like solo and the backdrop: never serialised, and it could not
-be. The rig owns the lights and nothing else in the scene.
-
-#### What it does not paint
-
-It is `scene.overrideMaterial`, so it is one property with nothing to remember
-and nothing to put back, and a mesh the app mounts while grey is on is covered
-without anyone having to notice it arrived. Three gates the override on
-`material.allowOverride`, which is how it keeps its own background mesh out of
-one, and that is the whole exclusion mechanism here.
-
-- **The environment.** Free, and not a decision: drei portals lightformers and
-  anything in `<LightStudio.Environment>` into a scene of its own, so they never
-  see the main scene's override. Right, too — they are emitters, not surfaces you
-  are judging.
-- **The wireframes, the handles and the gizmo.** These say `allowOverride={false}`
-  where they are written. The one that makes it necessary rather than tidy is the
-  invisible sphere behind every handle, which is pickable precisely because it
-  writes neither colour nor depth: replace it with an opaque grey and you get a
-  ball parked in front of every light in the rig. The gizmo's materials come from
-  `three-stdlib`, so those are marked by walking it.
-- **The projected ground.** It is the environment wrapped around the horizon
-  rather than anything the rig lights, so it is marked in `EnvironmentRig`.
-
-#### Your own materials can opt out
-
-`allowOverride` is three's, not ours, so anything in your scene can say the same:
-
-```tsx
-<meshBasicMaterial allowOverride={false} />
-```
-
-Worth knowing about, because the case that needs it is a common one. drei's
-`<ContactShadows>` is a plane showing a shadow texture — app content by
-ownership, an instrument by nature — and grey mode will paint over it with
-everything else. In the playground that was 10.7% of the frame: a solid grey
-rectangle where the soft shadow had been. It is marked there, and that is what
-the escape hatch is for. The same goes for a video screen, a billboard, or
-anything else whose material is showing you something rather than catching light.
-
-Transparency is flattened either way, and that is inherent: glass becomes a grey
-blob and render order will not match. Standard for a clay render, and worth
-knowing before you see it.
-
-### The properties panel
-
-Which controls appear is derived from `LIGHT_DEFINITIONS` the same way the
-handles are — a field is in the panel because the schema says the light has it.
-What the schema does not say is how a field should _read_, so step sizes, the
-menu of shadow-map resolutions and the nesting of the shadow settings live in
-`debug/panel/fields.ts`. Ranges are the exception: `clamp` in the schema marks
-the values three actually misbehaves outside of, and those become hard limits.
-
-The panel reads in three bands: what the light emits, then what it casts, then
-where it is. **`position` and `target` are folded away under `transform`, at
-the bottom**, because a light gets dragged with the gizmo far more often than
-it gets typed — those numbers are for reading an exact value or nudging one,
-not for aiming, so they sit below everything you actually reach for.
-
-**`shadows` sits above the shadow folder, not inside it.** Whether a light
-casts is the one shadow field worth reading at a glance, and a collapsed
-folder hides it. Putting the state in the folder's own title is not an option:
-leva takes a folder's title from its key and gives it no `label`, so saying
-"shadow (enabled)" would mean renaming the key — which is a different folder
-path, rebuilt collapsed, so the group would snap shut every time you ticked
-the box inside it. Everything left in the folder is tuning you open on
-purpose.
-
-Leva renders it, filled into the slot rather than floating, with a store of its
-own so an app that already uses leva keeps its own panel where it put it. It is
-a **peer** dependency for the same reason drei is: leva keeps a global store and
-a floating root, so two copies means two panels, and having a store of our own
-is no help if the library holding it is not the app's. The range is `^0.10`
-rather than something generous — leva is pre-1.0, and the mirror leans on
-`useCreateStore` and `LevaPanel`, which is exactly the surface a `0.x` minor is
-free to move.
-
-Leva is a tenant here, not the architecture: `fields.ts` describes controls and
-imports nothing from it, which is the seam a different widget library would
-slot into.
-
-**The store owns the values; leva mirrors them.** Every control writes through a
-store action, and a store subscription pushes values back into leva. Leva can
-own its own state, but then a gizmo drag would not move the numbers and undo
-would not move either. Two details make the mirror safe:
-
-- Leva reports a change whether it came from the panel or from a `set` call, so
-  the write-back path checks `fromPanel` and ignores its own echo. It also
-  ignores the one `initial` call leva makes on mount, which would otherwise
-  record an edit nobody made just for selecting a light.
-- The control under the pointer is skipped while it is being dragged, so the
-  mirror never fights a scrub in progress.
-
-**Scrubbing a slider is one undo step**, the same as one gizmo drag — leva's
-`onEditStart`/`onEditEnd` bracket the store transaction.
-
-Two leva quirks worth knowing, because both look like bugs in this package:
-
-- **Leva keeps whatever value a control path already had**, and every light
-  type shares `intensity`, `color` and `position`. Rebuilding the schema does
-  not reset them and neither does remounting, so on every selection change the
-  panel writes all of its values over the ones the previous light left behind.
-  Field order needs the same treatment — each control carries an explicit
-  `order`, because leva otherwise lays a folder out in the order its controls
-  first appeared and the fields shuffle as you click between types.
-- **A folder keeps the settings it was first created with**, `order` included,
-  and a folder's order is the order of the first field inside it. So those
-  numbers are banded by group rather than counted off from the start of the
-  list: a point light has four fields before its `transform` and a spot has
-  six, and an order that counted would leave the folder wherever the last type
-  you looked at had put it. Plain inputs do not have this problem — their
-  settings are rewritten on every schema build.
-- **`useControls` takes its settings before its deps**, not after. Called
-  without a folder name it reads argument two as either the deps array or the
-  settings, and a settings object in argument three is dropped silently. The
-  symptom is a panel that works but registers into leva's global store, so
-  leva's own floating panel appears on top of this one.
-
-## Getting it back into the file
-
-A bar under the panels. **Save** writes the file when there is a Vite plugin to
-do it; **Copy JSON** is always there for when there is not.
-
-The bar reads **Edited** whenever the rig has drifted from the file, and stops
-saying so once you save or copy. Losing that word is the confirmation; the
-button also flashes for a couple of seconds.
-
-**Reset** sits next to it, and only while there is something to discard. A
-reset button that is always there is a standing invitation to throw the session
-away; one that arrives alongside the edits it would undo is a way out of them.
-It does not ask first, because it pushes a history entry like any other change
-— `Cmd+Z` brings the whole rig straight back.
-
-Copying counts as **saving**, and that is a real decision rather than an
-oversight. The paste that follows comes back in through the `setup` prop, and
-the editor refuses an incoming setup while there are unsaved edits — so
-staying dirty would make it reject the very file you just wrote. The cost is
-that a copy you never paste leaves the editor willing to take a new setup over
-the top of your edits.
-
-**The output is shaped for a file that gets committed and read in diffs.**
-
-- **`serializeSetup` writes only what was authored.** Anything still at its
-  default is left out, so defaults stay free to change and the file stays
-  about your rig rather than about the schema.
-- **Short number arrays stay on one line.** `[4, 6, 3]` is one value — a
-  position — and `JSON.stringify(x, null, 2)` spreads it over five. That would
-  turn nudging a light into a three-line diff and roughly triple the length of
-  the rig, so `exportSetup` prints it itself. Positions, targets, colours and
-  shadow frusta are all short number arrays, so the one rule covers the schema.
-- **Numbers in those arrays round to three decimals**, a millimetre at scene
-  scale. A dragged gizmo hands the store `-6.654158442397424`, and seventeen
-  digits per axis is unreadable in a file you review by hand. Scalars are left
-  alone: an intensity of `0.0001` is a real value that the same rounding would
-  flatten to zero.
-- **Two spaces and a trailing newline**, which is where an editor or a
-  formatter would land anyway.
-
-Pasting over a hand-written file changes two things once, and then never
-again: a two-line `meta` block appears, and each light's keys are reordered
-into the order `LIGHT_DEFINITIONS` declares them.
-
-The clipboard write falls back to the old select-and-`execCommand` trick.
-`navigator.clipboard` exists only in a secure context, and a dev server reached
-from another machine on the network is plain http — which is exactly the setup
-you are in when you are tuning a scene on a phone. If both fail the button says
-_See console_, and the JSON is logged there rather than lost.
-
-## The Vite plugin
+Add the Vite plugin and `Cmd+S` writes the file the rig came from:
 
 ```ts
 // vite.config.ts
@@ -896,9 +86,7 @@ export default defineConfig({
 })
 ```
 
-That is it. `Cmd+S` — or `Ctrl+S` — now writes the file, and the **Save**
-button appears in the bar. Several rigs get an object, and each component names
-the key it belongs to:
+For several rigs, pass an object and name the key from the component:
 
 ```ts
 plugins: [lightStudio({ hero: 'src/hero.json', product: 'src/product.json' })]
@@ -908,67 +96,124 @@ plugins: [lightStudio({ hero: 'src/hero.json', product: 'src/product.json' })]
 <LightStudio id="hero" setup={hero} debug />
 ```
 
-A bare string is sugar for one target under the id a component gets when it
-names none, so the single-rig case needs nothing on the component. An `id`
-nobody declared gets **no Save button and a console warning** — you configured
-the plugin, so a button silently missing would be the wrong answer.
+The browser only ever sends an id you declared, never a path, so a page cannot
+talk the server into writing somewhere else. The plugin is `apply: 'serve'` and
+does not survive a build.
 
-**The browser never sends a path.** It sends one of the ids from your config
-and the server looks the path up, so there is nothing a page can say to this
-that talks it into writing somewhere it was not told about. That is worth more
-than it looks: a dev server is often listening on the network and not only on
-localhost. The plugin is `apply: 'serve'`, so none of it survives a build.
+Without the plugin the editor offers **Copy JSON** instead, and edits live in
+memory until you reload.
 
-**Saving does not cost you your session.** The write goes to disk, Vite notices
-the JSON change and pushes it back through the import, and the editor sees a
-new `setup` a moment after the one it already had. Reloading on that would
-clear the selection, the solo and the whole undo stack on every save. So the
-incoming rig is compared — as the text that _would_ be written, since a round
-trip through the file is not identity-preserving — against what was last
-saved, and an exact match is recognised as the editor's own echo and ignored.
-Edit the file in your editor instead and it differs, so it still loads.
+## Props
 
-Three details worth knowing:
+| Prop        | Type                | Default         | Description                                                                 |
+| ----------- | ------------------- | --------------- | --------------------------------------------------------------------------- |
+| `setup`     | `unknown`           | required        | The rig. Usually a raw JSON import. Invalid input warns rather than throws. |
+| `debug`     | `boolean`           | `false`         | Arms the editor. Leave off in production.                                   |
+| `toggleKey` | `ToggleKey \| null` | `{ key: 'F2' }` | What shows and hides the editor. `null` binds nothing.                      |
+| `id`        | `string`            | `'default'`     | Which plugin target to save to. Only needed with several rigs.              |
+| `children`  | `ReactNode`         |                 | Only `<LightStudio.Environment>`, see below.                                |
 
-- **It is a `fetch` to dev-server middleware, not Vite's HMR channel.** The HMR
-  channel would have been tidier and does not survive publication: an installed
-  package is pre-bundled out of `node_modules` and Vite gives that code no HMR
-  context, so `import.meta.hot` would be undefined for exactly the people who
-  install this. It works in a workspace only because the link resolves to
-  source.
-- **A dev server without the plugin answers `/__light-studio/targets` with
-  `200 text/html`** — the SPA fallback. A status check alone would conclude the
-  plugin was there, so the reply has to carry a marker before it is believed.
-- **The plugin file is the one place in the package that names a `.ts`
-  extension on an import.** Every other file is resolved by Vite; this one is
-  loaded by Node while it reads your config, and Node will not guess at a
-  missing extension.
+The toggle key matches both `KeyboardEvent.code` and `.key`, so `'Backquote'`,
+`'F2'` and `'d'` all work, and takes an optional `modifier` of `'meta'`, `'ctrl'`,
+`'alt'` or `'shift'`.
 
-## Commands
+## Keyboard
 
-```bash
-pnpm dev         # playground on :5173
-pnpm check       # lint + format:check + typecheck
-pnpm build
+Bound only while the editor is on screen, and never while you are typing in a
+field.
+
+| Key                                 | Action                                   |
+| ----------------------------------- | ---------------------------------------- |
+| `F2`                                | Show or hide the editor                  |
+| `Cmd/Ctrl` + `S`                    | Save to the file (needs the Vite plugin) |
+| `Cmd/Ctrl` + `Z`                    | Undo                                     |
+| `Cmd` + `Shift` + `Z`, `Ctrl` + `Y` | Redo                                     |
+| `Cmd/Ctrl` + `D`                    | Duplicate the selected light             |
+| `Delete`, `Backspace`               | Remove the selected light                |
+
+## The rig file
+
+Seven types: `ambient`, `hemisphere`, `directional`, `point`, `spot`, `rectArea`
+and `lightformer`. Every light has an `id` and a `type`; everything else is
+optional and falls back to that type's default.
+
+```json
+{
+  "id": "key",
+  "type": "directional",
+  "name": "Key",
+  "color": "#ffe8d5",
+  "intensity": 3.2,
+  "position": [4, 6, 3],
+  "target": [0, 0.8, 0],
+  "shadow": { "enabled": true, "mapSize": 2048, "far": 30, "frustum": [-8, 8, 8, -8] }
+}
 ```
 
-Tooling is [oxc](https://oxc.rs) — `oxlint` and `oxfmt` in place of ESLint and
-Prettier — plus `tsc` for typechecking, which oxc does not replace. The
-`react-perf` plugin is off: its no-new-array/object-as-prop rules fire on
-essentially every r3f element (`args={[...]}`, `position={[...]}`).
+A few things worth knowing:
 
-## Gotchas
+- **Aiming is a point, not a rotation.** Directional and spot lights store
+  `target: [x, y, z]`, and the `Object3D` three needs is created for you.
+- **Intensities assume physically-correct lighting** (three r155 and later), so
+  point and spot values are in the tens rather than around 1.
+- **Defaults are omitted on write**, so the file stays about your rig. A freshly
+  added light serialises to `{ "id": "spot", "type": "spot" }`.
+- **Numbers in short arrays round to three decimals** and stay on one line, so
+  nudging a light is a one line diff.
+- Tone mapping and exposure are not in the schema. They belong to
+  `<Canvas gl={{ toneMappingExposure: 1.1 }} />`.
 
-- `<OrbitControls makeDefault />` is required, or dragging the gizmo will
-  orbit the camera at the same time. drei reads `makeDefault` to find the
-  controls it must disable mid-drag.
-- The editor renders **fixed to the viewport**, not inside your layout. Two
-  `<LightStudio debug />` in one app would stack two columns on top of each
-  other; the store is per-instance but the screen is not.
-- The stylesheet is **injected as a `<style>` tag**, so there is no CSS file to
-  import. It only ships in the debug chunk.
-- `three` and `react` are pinned through the pnpm catalog. Two copies of
-  `three` break `instanceof` checks and r3f reconciliation in ways that are
-  very hard to trace.
-- `RectAreaLightUniformsLib` is ~247 kB of BRDF lookup tables, so it is
-  imported lazily and only when a rig actually contains a rect-area light.
+## Environment
+
+The rig carries one optional `environment` block: an HDRI by drei preset name or
+by `files` URL, an optional visible background, and optional ground projection.
+Lightformers live in `lights` like any other light and are drawn into it.
+
+For meshes the JSON cannot describe, such as an occluder in front of a
+lightformer, use the slot:
+
+```tsx
+<LightStudio setup={setup} debug>
+  <LightStudio.Environment>
+    <mesh position={[0, 3, 1]}>
+      <planeGeometry args={[2, 4]} />
+      <meshBasicMaterial color="black" />
+    </mesh>
+  </LightStudio.Environment>
+</LightStudio>
+```
+
+## Exports
+
+```ts
+import {
+  LightStudio,
+  parseSetup, // unknown -> a valid setup, plus warnings
+  serializeSetup, // a setup -> the JSON that gets written
+  LIGHT_DEFINITIONS, // every type's defaults, clamps and label
+  LIGHT_TYPES,
+  ENVIRONMENT_PRESETS,
+  LIGHTFORMER_FORMS,
+  SCHEMA_VERSION,
+} from 'r3f-light-studio'
+```
+
+Types for the whole schema are exported alongside them, including `LightSetup`,
+`LightConfig`, `LightType`, `EnvironmentConfig` and `ShadowConfig`.
+
+## Notes
+
+- `<OrbitControls makeDefault />` is required, or dragging a gizmo orbits the
+  camera at the same time. drei reads `makeDefault` to find the controls it has
+  to suspend mid-drag.
+- The editor is fixed to the viewport rather than laid out in your page, so run
+  one `<LightStudio debug />` at a time.
+- All editor code sits behind a lazy import, so it is a separate chunk your
+  production bundle never loads. Its styles are injected as a `<style>` tag,
+  so there is no CSS file to import.
+- Rect-area lights pull in around 247 kB of BRDF lookup tables. That import is
+  lazy and only happens when a rig actually contains one.
+
+## License
+
+MIT
