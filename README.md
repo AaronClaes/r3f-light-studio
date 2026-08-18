@@ -11,6 +11,8 @@ Scope is deliberately narrow: only the lights you pass in. This is not a scene
 editor (see [Triplex](https://triplex.dev)) and not an animation tool (see
 [Theatre.js](https://www.theatrejs.com)).
 
+![The editor open over a scene, showing the outliner, the environment's properties and a helper drawn for every light](https://raw.githubusercontent.com/AaronClaes/r3f-light-studio/main/docs/screenshot.png)
+
 ## Thanks
 
 This is a thin layer over [pmndrs](https://github.com/pmndrs) amazing work.
