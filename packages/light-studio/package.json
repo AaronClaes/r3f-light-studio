@@ -1,8 +1,27 @@
 {
   "name": "r3f-light-studio",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Lighting rigs for react-three-fiber, described by JSON and edited in the browser",
+  "keywords": [
+    "devtools",
+    "editor",
+    "lighting",
+    "lights",
+    "r3f",
+    "react",
+    "react-three-fiber",
+    "three",
+    "threejs"
+  ],
+  "homepage": "https://github.com/AaronClaes/r3f-light-studio#readme",
+  "bugs": "https://github.com/AaronClaes/r3f-light-studio/issues",
   "license": "MIT",
+  "author": "Aaron Claes (https://github.com/AaronClaes)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AaronClaes/r3f-light-studio.git",
+    "directory": "packages/light-studio"
+  },
   "files": [
     "dist",
     "src"
@@ -29,6 +48,7 @@
     "access": "public"
   },
   "scripts": {
+    "prepack": "node -e \"require('fs').copyFileSync('../../README.md','README.md')\"",
     "build": "tsup && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit"
   },

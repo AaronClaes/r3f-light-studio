@@ -5,3 +5,6 @@ dist/
 .DS_Store
 .env
 .env.local
+
+# Copied from the repo root at pack time, so the npm page has one.
+packages/light-studio/README.md
