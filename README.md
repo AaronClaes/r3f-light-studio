@@ -208,7 +208,14 @@ Types for the whole schema are exported alongside them, including `LightSetup`,
 
 - `<OrbitControls makeDefault />` is required, or dragging a gizmo orbits the
   camera at the same time. drei reads `makeDefault` to find the controls it has
-  to suspend mid-drag.
+  to suspend mid-drag, and it is also how the editor finds them to switch off
+  when you free the camera.
+- **Free the camera** in the header lifts whatever limits your controls put on
+  the camera, for when a rig has to be judged from an angle the app will not
+  give you. Off until you ask for it, since a camera that quietly stops
+  behaving as you built it is worse than one you turned on. Switching it off
+  puts the camera back exactly where it was, so your app resumes inside its own
+  limits. Works with any controls library, camera-controls included.
 - The editor is fixed to the viewport rather than laid out in your page, so run
   one `<LightStudio debug />` at a time.
 - Helpers ignore each light's own colour, so a white light on a white page is

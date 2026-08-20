@@ -5,7 +5,7 @@ import type { StudioState } from '../../core/state'
 import { useStudio, useStudioStore } from '../context'
 import { AddMenu } from './AddMenu'
 import { EnvironmentRow } from './EnvironmentRow'
-import { CloseIcon, GreyIcon } from './icons'
+import { CameraIcon, CloseIcon, GreyIcon } from './icons'
 import { LightRow } from './LightRow'
 import { usePaint } from './paint'
 import { Panel } from './Panel'
@@ -44,6 +44,8 @@ export function Outliner() {
           ) : null}
 
           <GreyToggle />
+
+          <FreeCameraToggle />
 
           <AddMenu />
 
@@ -110,6 +112,30 @@ function GreyToggle() {
       aria-pressed={grey}
     >
       <GreyIcon />
+    </button>
+  )
+}
+
+/**
+ * Off until asked for, so the app's camera keeps behaving as the app built it
+ * until you decide otherwise. Switching it off hands the camera back where it
+ * was, not where you left it.
+ */
+function FreeCameraToggle() {
+  const store = useStudioStore()
+  const freeCamera = useStudio((state) => state.freeCamera)
+
+  return (
+    <button
+      type="button"
+      className="ls-icon"
+      data-on={freeCamera}
+      onClick={() => store.getState().setFreeCamera(!freeCamera)}
+      title="Orbit, pan and zoom without the limits the app puts on its camera. Switch it off to get the app's own camera back."
+      aria-label="Free the camera"
+      aria-pressed={freeCamera}
+    >
+      <CameraIcon />
     </button>
   )
 }

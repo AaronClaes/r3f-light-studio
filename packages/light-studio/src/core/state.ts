@@ -37,6 +37,12 @@ export interface StudioState extends LiveWorkspace {
   /** Never serialised, and cannot be: the rig owns the lights, not the scene. */
   grey: boolean
   /**
+   * Off by default. The app's camera limits are its own decision, and a camera
+   * that quietly stops behaving as the app built it is worse than one you asked
+   * for.
+   */
+  freeCamera: boolean
+  /**
    * Here rather than in a prop because the editor's DOM is a React root of its
    * own, rendered exactly once, so anything pushed in from outside would freeze.
    */
@@ -53,6 +59,12 @@ export interface StudioState extends LiveWorkspace {
    * selection the gizmo is attached to.
    */
   gizmoTookClick: boolean
+  /**
+   * Open while a gizmo axis is held. The editor's own camera controls read it
+   * to stand down, which drei would otherwise have done for us if the editor
+   * owned `state.controls`.
+   */
+  gizmoDragging: boolean
 
   select: (id: string | null, field?: VectorField) => void
   /** Set rather than toggle, so a drag down a column can repeat a value safely. */
@@ -60,6 +72,8 @@ export interface StudioState extends LiveWorkspace {
   clearSolo: () => void
   setForceBackground: (next: boolean) => void
   setGrey: (next: boolean) => void
+  setFreeCamera: (next: boolean) => void
+  setGizmoDragging: (next: boolean) => void
 
   setVisible: (next: boolean) => void
   toggleVisible: () => void

@@ -57,10 +57,12 @@ export function LightGizmo() {
           object={proxy}
           onMouseDown={() => {
             dragging.current = true
+            store.getState().setGizmoDragging(true)
             store.getState().beginTransaction()
           }}
           onMouseUp={() => {
             dragging.current = false
+            store.getState().setGizmoDragging(false)
             // A drag moves too far for r3f to call it a click, so there is
             // nothing to claim. A tap does produce one.
             const moved = store.getState().endTransaction()

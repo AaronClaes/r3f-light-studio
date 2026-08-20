@@ -53,6 +53,8 @@ export function createLightStudioStore(initial: LightSetup) {
       soloIds: [],
       forceBackground: false,
       grey: false,
+      freeCamera: false,
+      gizmoDragging: false,
       visible: false,
       toggleHint: null,
       saveTarget: null,
@@ -80,6 +82,8 @@ export function createLightStudioStore(initial: LightSetup) {
       setForceBackground: (next) => set({ forceBackground: next }),
 
       setGrey: (next) => set({ grey: next }),
+      setFreeCamera: (next) => set({ freeCamera: next }),
+      setGizmoDragging: (next) => set({ gizmoDragging: next }),
 
       setVisible: (next) => set({ visible: next }),
       toggleVisible: () => set((state) => ({ visible: !state.visible })),

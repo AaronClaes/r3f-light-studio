@@ -11,6 +11,7 @@ import type { HelperStyle } from '../runtime/helperStyle'
 import { LightRenderer } from '../runtime/LightRenderer'
 import { describeToggleKey, useToggleKey, type ToggleKey } from '../runtime/toggleKey'
 import { LightStudioStoreProvider, useStudio } from './context'
+import { EditorCamera } from './EditorCamera'
 import { setupToJson } from './exportSetup'
 import { GreyMode } from './GreyMode'
 import { LightHelpers } from './helpers/LightHelpers'
@@ -160,6 +161,7 @@ function StudioScene({
   const environment = useStudio(selectRenderableEnvironment)
   const forceBackground = useStudio((state) => state.forceBackground)
   const visible = useStudio((state) => state.visible)
+  const freeCamera = useStudio((state) => state.freeCamera)
 
   // Not memoised: it spreads into primitives, so a fresh object costs nothing.
   const style = resolveHelperStyle(helpers)
@@ -186,6 +188,7 @@ function StudioScene({
       {/* Safe to unmount: they hold nothing but geometry. */}
       {visible ? (
         <>
+          {freeCamera ? <EditorCamera /> : null}
           <GreyMode />
           <LightHelpers {...style} />
           <LightHandles {...forHandles(style)} />

@@ -86,6 +86,20 @@ export function GreyIcon() {
   )
 }
 
+/**
+ * A camera, not an orbit. A ring around a dot is what an orbit wants to be, and
+ * at 12px that is an eye, which this panel already uses for something else.
+ */
+export function CameraIcon() {
+  return (
+    <svg {...SVG} aria-hidden>
+      <path d="M5.9 5.2 6.8 3.2h2.4l.9 2" />
+      <rect x="1.6" y="5.2" width="12.8" height="8.2" rx="1.6" />
+      <circle cx="8" cy="9.3" r="2.3" />
+    </svg>
+  )
+}
+
 export function SoloIcon({ on }: { on: boolean }) {
   return (
     <svg {...SVG} aria-hidden>
