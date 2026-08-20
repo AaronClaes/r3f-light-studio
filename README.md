@@ -113,6 +113,7 @@ memory until you reload.
 | `debug`     | `boolean`           | `false`         | Arms the editor. Leave off in production.                                   |
 | `toggleKey` | `ToggleKey \| null` | `{ key: 'F2' }` | What shows and hides the editor. `null` binds nothing.                      |
 | `id`        | `string`            | `'default'`     | Which plugin target to save to. Only needed with several rigs.              |
+| `helpers`   | `HelperStyle`       | see below       | What the editor draws its helpers and handles in.                           |
 | `children`  | `ReactNode`         |                 | Only `<LightStudio.Environment>`, see below.                                |
 
 The toggle key matches both `KeyboardEvent.code` and `.key`, so `'Backquote'`,
@@ -210,6 +211,22 @@ Types for the whole schema are exported alongside them, including `LightSetup`,
   to suspend mid-drag.
 - The editor is fixed to the viewport rather than laid out in your page, so run
   one `<LightStudio debug />` at a time.
+- Helpers ignore each light's own colour, so a white light on a white page is
+  still visible. As in Blender, the selected light is drawn in an accent colour
+  and every other one in black. Which light is which is the outliner swatch's
+  job. Override any of it with `helpers`:
+
+  ```tsx
+  <LightStudio
+    setup={setup}
+    debug
+    helpers={{ color: '#d97706', idleColor: '#000000', idleOpacity: 0.75 }}
+  />
+  ```
+
+  Those are the defaults. Handles carry at a little under `idleOpacity`, since
+  they draw over the scene while the wireframes can be occluded.
+
 - All editor code sits behind a lazy import, so it is a separate chunk your
   production bundle never loads. Its styles are injected as a `<style>` tag,
   so there is no CSS file to import.

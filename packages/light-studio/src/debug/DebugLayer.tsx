@@ -7,6 +7,7 @@ import {
   selectRenderableEnvironment,
   selectRenderableLights,
 } from '../core/store'
+import type { HelperStyle } from '../runtime/helperStyle'
 import { LightRenderer } from '../runtime/LightRenderer'
 import { describeToggleKey, useToggleKey, type ToggleKey } from '../runtime/toggleKey'
 import { LightStudioStoreProvider, useStudio } from './context'
@@ -17,6 +18,7 @@ import { useHistoryKeys } from './historyKeys'
 import { LightGizmo } from './LightGizmo'
 import { LightHandles } from './LightHandles'
 import { useLightKeys } from './lightKeys'
+import { forHandles, resolveHelperStyle } from './palette'
 import { PropertiesPanel } from './panel/PropertiesPanel'
 import { readVisible, writeVisible } from './persistVisible'
 import { readWorkspaces, writeWorkspaces } from './persistWorkspaces'
@@ -34,6 +36,7 @@ interface DebugLayerProps {
   toggleKey: ToggleKey | null
   saveId: string
   environmentContent: ReactNode
+  helpers?: HelperStyle
 }
 
 /** Owns the store and renders from it. Otherwise the production path. */
@@ -43,6 +46,7 @@ export default function DebugLayer({
   toggleKey,
   saveId,
   environmentContent,
+  helpers,
 }: DebugLayerProps) {
   // Lazy initialiser, not useMemo: re-deriving from `setup` would discard
   // in-progress edits.
@@ -140,16 +144,25 @@ export default function DebugLayer({
 
   return (
     <LightStudioStoreProvider value={store}>
-      <StudioScene environmentContent={environmentContent} />
+      <StudioScene environmentContent={environmentContent} helpers={helpers} />
     </LightStudioStoreProvider>
   )
 }
 
-function StudioScene({ environmentContent }: { environmentContent: ReactNode }) {
+function StudioScene({
+  environmentContent,
+  helpers,
+}: {
+  environmentContent: ReactNode
+  helpers?: HelperStyle
+}) {
   const lights = useStudio(selectRenderableLights)
   const environment = useStudio(selectRenderableEnvironment)
   const forceBackground = useStudio((state) => state.forceBackground)
   const visible = useStudio((state) => state.visible)
+
+  // Not memoised: it spreads into primitives, so a fresh object costs nothing.
+  const style = resolveHelperStyle(helpers)
 
   useHistoryKeys(visible)
   useLightKeys(visible)
@@ -174,8 +187,8 @@ function StudioScene({ environmentContent }: { environmentContent: ReactNode }) 
       {visible ? (
         <>
           <GreyMode />
-          <LightHelpers />
-          <LightHandles />
+          <LightHelpers {...style} />
+          <LightHandles {...forHandles(style)} />
           <LightGizmo />
         </>
       ) : null}

@@ -6,6 +6,7 @@ import type { Vec3, VectorField } from '../core/schema'
 import { useStudio, useStudioStore } from './context'
 import { useDrawnLights } from './drawnLights'
 import { dashedCircle, wireCross, wireDiamond } from './helpers/geometry'
+import type { ResolvedHelperStyle } from './palette'
 
 /** Ring radius as a fraction of the viewport height. */
 const HANDLE_SIZE = 0.015
@@ -14,8 +15,6 @@ const CENTRE_RADIUS = 0.3
 /** The pick sphere covers the ring from any angle, with a little margin. */
 const PICK_SCALE = 1.3
 const SELECTED_SCALE = 1.25
-const SELECTED_COLOR = '#ffffff'
-const IDLE_OPACITY = 0.55
 
 /**
  * One grabbable point per light, plus one on the selected light's target.
@@ -24,7 +23,7 @@ const IDLE_OPACITY = 0.55
  * so a dozen of them stack into one blob there, and the beam already shows
  * where a light points.
  */
-export function LightHandles() {
+export function LightHandles({ color, idleColor, idleOpacity }: ResolvedHelperStyle) {
   const lights = useDrawnLights()
   const selectedId = useStudio((state) => state.selectedId)
   const store = useStudioStore()
@@ -44,10 +43,24 @@ export function LightHandles() {
       {lights.map((light) => (
         <Fragment key={light.id}>
           {'position' in light ? (
-            <Handle color={light.color} field="position" id={light.id} point={light.position} />
+            <Handle
+              color={color}
+              field="position"
+              id={light.id}
+              idleColor={idleColor}
+              idleOpacity={idleOpacity}
+              point={light.position}
+            />
           ) : null}
           {'target' in light && light.id === selectedId ? (
-            <Handle color={light.color} field="target" id={light.id} point={light.target} />
+            <Handle
+              color={color}
+              field="target"
+              id={light.id}
+              idleColor={idleColor}
+              idleOpacity={idleOpacity}
+              point={light.target}
+            />
           ) : null}
         </Fragment>
       ))}
@@ -55,14 +68,13 @@ export function LightHandles() {
   )
 }
 
-interface HandleProps {
+interface HandleProps extends ResolvedHelperStyle {
   id: string
   field: VectorField
   point: Vec3
-  color: string
 }
 
-function Handle({ id, field, point, color }: HandleProps) {
+function Handle({ id, field, point, color, idleColor, idleOpacity }: HandleProps) {
   const group = useRef<THREE.Group>(null)
   const store = useStudioStore()
   const { lightSelected, dragged } = useStudio((state) => ({
@@ -81,14 +93,18 @@ function Handle({ id, field, point, color }: HandleProps) {
   useBillboard(group, HANDLE_SIZE)
   usePointerCursor(hovered)
 
-  const markColor = dragged ? SELECTED_COLOR : color
-  const opacity = lightSelected || hovered ? 1 : IDLE_OPACITY
+  const active = lightSelected || hovered
 
   return (
     <group ref={group} position={point}>
       <group scale={dragged ? SELECTED_SCALE : 1}>
         {marks.map((mark) => (
-          <Mark color={markColor} geometry={mark} key={mark.uuid} opacity={opacity} />
+          <Mark
+            color={active ? color : idleColor}
+            geometry={mark}
+            key={mark.uuid}
+            opacity={active ? 1 : idleOpacity}
+          />
         ))}
       </group>
 

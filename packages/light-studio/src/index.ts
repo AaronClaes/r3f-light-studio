@@ -1,4 +1,5 @@
 export { LightStudio, type LightStudioProps } from './runtime/LightStudio'
+export { type HelperStyle } from './runtime/helperStyle'
 export { type EnvironmentSlotProps } from './runtime/slots'
 export { type ToggleKey } from './runtime/toggleKey'
 

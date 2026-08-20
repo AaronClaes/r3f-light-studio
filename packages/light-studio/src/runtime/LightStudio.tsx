@@ -4,6 +4,7 @@ import { visibleLights } from '../core/lights'
 import { parseSetup } from '../core/parse'
 import { DEFAULT_SAVE_ID } from '../core/save'
 import type { LightSetup } from '../core/schema'
+import type { HelperStyle } from './helperStyle'
 import { LightRenderer } from './LightRenderer'
 import { splitSlots, StudioEnvironment } from './slots'
 import { DEFAULT_TOGGLE_KEY, type ToggleKey } from './toggleKey'
@@ -27,6 +28,12 @@ export interface LightStudioProps {
    * config was given an object of several rigs.
    */
   id?: string
+  /**
+   * What the editor draws its helpers and handles in, for when the defaults are
+   * lost against your scene. The active light takes `color`, every other one
+   * `idleColor`.
+   */
+  helpers?: HelperStyle
   /** Slots, not scene content. Anything but `<LightStudio.Environment>` is dropped. */
   children?: ReactNode
 }
@@ -43,6 +50,7 @@ export function LightStudio({
   debug = false,
   toggleKey = DEFAULT_TOGGLE_KEY,
   id = DEFAULT_SAVE_ID,
+  helpers,
   children,
 }: LightStudioProps) {
   const { setup: parsed, issues } = useMemo(() => parseSetup(setup), [setup])
@@ -85,6 +93,7 @@ export function LightStudio({
     <Suspense fallback={rig}>
       <DebugLayer
         environmentContent={content}
+        helpers={helpers}
         onExit={setEdited}
         saveId={id}
         setup={live}

@@ -13,6 +13,7 @@ import type {
 } from '../../core/schema'
 import { useStudio } from '../context'
 import { useDrawnLights } from '../drawnLights'
+import type { ResolvedHelperStyle } from '../palette'
 import { wireBox, wireCone, wireEllipse, wireLine, wireRectangle, wireSphere } from './geometry'
 
 /**
@@ -33,85 +34,84 @@ const RING_INNER = 0.5
 /** `range` is always the biggest thing on screen, so it stays furthest back. */
 const ROLE = { primary: 1, secondary: 0.6, range: 0.35 }
 
-const EMPHASIS = { selected: 1, idle: 0.28 }
-
-type Emphasis = keyof typeof EMPHASIS
-
-function opacityOf(role: keyof typeof ROLE, emphasis: Emphasis): number {
-  return ROLE[role] * EMPHASIS[emphasis]
+function opacityOf(role: keyof typeof ROLE, fade: number): number {
+  return ROLE[role] * fade
 }
 
-export function LightHelpers() {
+export function LightHelpers({ color, idleColor, idleOpacity }: ResolvedHelperStyle) {
   const drawn = useDrawnLights()
   const selectedId = useStudio((state) => state.selectedId)
 
   return (
     <>
-      {drawn.map((light) => (
-        <LightHelper
-          key={light.id}
-          emphasis={light.id === selectedId ? 'selected' : 'idle'}
-          light={light}
-        />
-      ))}
+      {drawn.map((light) => {
+        const selected = light.id === selectedId
+        return (
+          <LightHelper
+            color={selected ? color : idleColor}
+            fade={selected ? 1 : idleOpacity}
+            key={light.id}
+            light={light}
+          />
+        )
+      })}
     </>
   )
 }
 
 interface HelperProps<T extends LightConfig = LightConfig> {
   light: T
-  emphasis: Emphasis
+  fade: number
+  color: string
 }
 
-function LightHelper({ light, emphasis }: HelperProps) {
+function LightHelper({ light, fade, color }: HelperProps) {
   switch (light.type) {
     // No position and no direction, so there is nothing honest to draw.
     case 'ambient':
       return null
 
     case 'hemisphere':
-      return <HemisphereHelper emphasis={emphasis} light={light} />
+      return <HemisphereHelper color={color} fade={fade} light={light} />
 
     case 'directional':
-      return <DirectionalHelper emphasis={emphasis} light={light} />
+      return <DirectionalHelper color={color} fade={fade} light={light} />
 
     case 'point':
-      return <PointHelper emphasis={emphasis} light={light} />
+      return <PointHelper color={color} fade={fade} light={light} />
 
     case 'spot':
-      return <SpotHelper emphasis={emphasis} light={light} />
+      return <SpotHelper color={color} fade={fade} light={light} />
 
     case 'rectArea':
-      return <RectAreaHelper emphasis={emphasis} light={light} />
+      return <RectAreaHelper color={color} fade={fade} light={light} />
 
     case 'lightformer':
-      return <LightformerHelper emphasis={emphasis} light={light} />
+      return <LightformerHelper color={color} fade={fade} light={light} />
   }
 }
 
-function HemisphereHelper({ light, emphasis }: HelperProps<HemisphereLightConfig>) {
+function HemisphereHelper({ light, fade, color }: HelperProps<HemisphereLightConfig>) {
   // `position` is the sky direction, so this is the sky-to-ground axis.
   const axis = useMemo(() => wireLine(light.position, [0, 0, 0]), [light.position])
 
-  return (
-    <Wire color={light.groundColor} geometry={axis} opacity={opacityOf('secondary', emphasis)} />
-  )
+  return <Wire color={color} geometry={axis} opacity={opacityOf('secondary', fade)} />
 }
 
-function DirectionalHelper({ light, emphasis }: HelperProps<DirectionalLightConfig>) {
+function DirectionalHelper({ light, fade, color }: HelperProps<DirectionalLightConfig>) {
   const plate = useMemo(() => wireRectangle(PLATE_SIZE, PLATE_SIZE), [])
 
   return (
     <>
       <Aimed position={light.position} target={light.target}>
-        <Wire color={light.color} geometry={plate} opacity={opacityOf('primary', emphasis)} />
+        <Wire color={color} geometry={plate} opacity={opacityOf('primary', fade)} />
       </Aimed>
-      <Beam color={light.color} emphasis={emphasis} from={light.position} to={light.target} />
+      <Beam color={color} fade={fade} from={light.position} to={light.target} />
     </>
   )
 }
 
-function PointHelper({ light, emphasis }: HelperProps<PointLightConfig>) {
+function PointHelper({ light, fade, color }: HelperProps<PointLightConfig>) {
   // `distance` of 0 means no cutoff, so there is no range to draw.
   const range = useMemo(
     () => (light.distance > 0 ? wireSphere(light.distance) : null),
@@ -122,12 +122,12 @@ function PointHelper({ light, emphasis }: HelperProps<PointLightConfig>) {
 
   return (
     <group position={light.position}>
-      <Wire color={light.color} geometry={range} opacity={opacityOf('range', emphasis)} />
+      <Wire color={color} geometry={range} opacity={opacityOf('range', fade)} />
     </group>
   )
 }
 
-function SpotHelper({ light, emphasis }: HelperProps<SpotLightConfig>) {
+function SpotHelper({ light, fade, color }: HelperProps<SpotLightConfig>) {
   // The cutoff distance when there is one, otherwise the target: the only
   // other length the setup gives us.
   const length = Math.max(
@@ -142,22 +142,22 @@ function SpotHelper({ light, emphasis }: HelperProps<SpotLightConfig>) {
   return (
     <>
       <Aimed position={light.position} target={light.target}>
-        <Wire color={light.color} geometry={cone} opacity={opacityOf('primary', emphasis)} />
+        <Wire color={color} geometry={cone} opacity={opacityOf('primary', fade)} />
       </Aimed>
-      <Beam color={light.color} emphasis={emphasis} from={light.position} to={light.target} />
+      <Beam color={color} fade={fade} from={light.position} to={light.target} />
     </>
   )
 }
 
-function RectAreaHelper({ light, emphasis }: HelperProps<RectAreaLightConfig>) {
+function RectAreaHelper({ light, fade, color }: HelperProps<RectAreaLightConfig>) {
   const shape = useMemo(() => wireRectangle(light.width, light.height), [light.width, light.height])
 
   return (
     <>
       <Aimed position={light.position} target={light.target}>
-        <Wire color={light.color} geometry={shape} opacity={opacityOf('primary', emphasis)} />
+        <Wire color={color} geometry={shape} opacity={opacityOf('primary', fade)} />
       </Aimed>
-      <Beam color={light.color} emphasis={emphasis} from={light.position} to={light.target} />
+      <Beam color={color} fade={fade} from={light.position} to={light.target} />
     </>
   )
 }
@@ -166,19 +166,19 @@ function RectAreaHelper({ light, emphasis }: HelperProps<RectAreaLightConfig>) {
  * The lightformer's mesh lives in the environment's own scene, so without this
  * you would be dragging an invisible point and judging it from a reflection.
  */
-function LightformerHelper({ light, emphasis }: HelperProps<LightformerConfig>) {
+function LightformerHelper({ light, fade, color }: HelperProps<LightformerConfig>) {
   const { form, width, height } = light
   const shape = useMemo(() => formGeometry(form, width, height), [form, width, height])
-  const opacity = opacityOf('primary', emphasis)
+  const opacity = opacityOf('primary', fade)
 
   return (
     <>
       <Aimed position={light.position} target={light.target}>
         {shape.map((geometry) => (
-          <Wire color={light.color} geometry={geometry} key={geometry.uuid} opacity={opacity} />
+          <Wire color={color} geometry={geometry} key={geometry.uuid} opacity={opacity} />
         ))}
       </Aimed>
-      <Beam color={light.color} emphasis={emphasis} from={light.position} to={light.target} />
+      <Beam color={color} fade={fade} from={light.position} to={light.target} />
     </>
   )
 }
@@ -205,20 +205,10 @@ function formGeometry(
   }
 }
 
-function Beam({
-  from,
-  to,
-  color,
-  emphasis,
-}: {
-  from: Vec3
-  to: Vec3
-  color: string
-  emphasis: Emphasis
-}) {
+function Beam({ from, to, color, fade }: { from: Vec3; to: Vec3; color: string; fade: number }) {
   const line = useMemo(() => wireLine(from, to), [from, to])
 
-  return <Wire color={color} geometry={line} opacity={opacityOf('secondary', emphasis)} />
+  return <Wire color={color} geometry={line} opacity={opacityOf('secondary', fade)} />
 }
 
 const UP = new THREE.Vector3(0, 1, 0)
