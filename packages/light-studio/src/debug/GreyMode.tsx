@@ -2,6 +2,7 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useMemo } from 'react'
 import { Color, DoubleSide, MeshStandardMaterial } from 'three'
 
+import { useRedraw } from '../runtime/redraw'
 import { useStudio } from './context'
 
 /**
@@ -14,6 +15,7 @@ import { useStudio } from './context'
 export function GreyMode() {
   const scene = useThree((state) => state.scene)
   const grey = useStudio((state) => state.grey)
+  const redraw = useRedraw()
 
   const material = useMemo(() => makeGrey(), [])
   useEffect(() => () => material.dispose(), [material])
@@ -24,10 +26,12 @@ export function GreyMode() {
     // Restored rather than nulled: an app may have one of its own.
     const previous = scene.overrideMaterial
     scene.overrideMaterial = material
+    redraw()
     return () => {
       scene.overrideMaterial = previous
+      redraw()
     }
-  }, [grey, material, scene])
+  }, [grey, material, redraw, scene])
 
   return null
 }

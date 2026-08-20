@@ -6,12 +6,14 @@ import { findLight } from '../core/lights'
 import type { LightPatch, LightSetup, Vec3, VectorField } from '../core/schema'
 import type { StudioState } from '../core/state'
 import { useKeepMaterial } from '../runtime/keepMaterial'
+import { useRedraw } from '../runtime/redraw'
 import { useStudio, useStudioStore } from './context'
 
 /** Translate only: the schema aims a light by moving a target, not by rotating it. */
 export function LightGizmo() {
   const store = useStudioStore()
   const selection = useStudio(selectDraggable)
+  const redraw = useRedraw()
 
   // TransformControls needs a real node to attach to; the store holds arrays.
   const proxy = useMemo(() => new THREE.Object3D(), [])
@@ -30,12 +32,20 @@ export function LightGizmo() {
     const follow = (state: StudioState) => {
       if (dragging.current) return
       const point = pointOf(state.setup, id, field)
-      if (point) proxy.position.set(...point)
+      if (!point) return
+
+      // Compared rather than written blind: this runs on every store change,
+      // and a frame is only owed when the point actually moved.
+      const [x, y, z] = point
+      if (proxy.position.x === x && proxy.position.y === y && proxy.position.z === z) return
+
+      proxy.position.set(x, y, z)
+      redraw()
     }
 
     follow(store.getState())
     return store.subscribe(follow)
-  }, [store, proxy, id, field])
+  }, [store, proxy, redraw, id, field])
 
   if (id === undefined || field === undefined) return null
 

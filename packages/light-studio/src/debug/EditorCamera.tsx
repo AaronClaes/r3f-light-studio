@@ -3,6 +3,7 @@ import { useFrame, useThree, type Camera } from '@react-three/fiber'
 import { useLayoutEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
 import * as THREE from 'three'
 
+import { useRedraw } from '../runtime/redraw'
 import { useStudio } from './context'
 
 /**
@@ -28,6 +29,7 @@ import { useStudio } from './context'
 export function EditorCamera() {
   const get = useThree((state) => state.get)
   const gizmoDragging = useStudio((state) => state.gizmoDragging)
+  const redraw = useRedraw()
   const ours = useRef<ComponentRef<typeof OrbitControls>>(null)
 
   /**
@@ -77,8 +79,9 @@ export function EditorCamera() {
       camera.quaternion.copy(quaternion)
       camera.zoom = zoom
       camera.updateProjectionMatrix()
+      redraw()
     }
-  }, [app.camera])
+  }, [app.camera, redraw])
 
   /**
    * Per frame rather than on the flag changing, because drei's

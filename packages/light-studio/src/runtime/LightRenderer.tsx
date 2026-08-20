@@ -14,6 +14,7 @@ import type {
   Vec3,
 } from '../core/schema'
 import { EnvironmentRig } from './EnvironmentRig'
+import { useRedraw } from './redraw'
 
 /** Everything that becomes a three light. A lightformer becomes a mesh instead. */
 type DirectLight = Exclude<LightConfig, LightformerConfig>
@@ -160,10 +161,13 @@ function RectAreaLightNode({ light }: { light: RectAreaLightConfig }) {
   const [x, y, z] = light.position
   const [tx, ty, tz] = light.target
 
+  const redraw = useRedraw()
+
   // RectAreaLight has no `.target`; it is aimed by rotating the light itself.
   useEffect(() => {
     ref.current?.lookAt(tx, ty, tz)
-  }, [tx, ty, tz, x, y, z])
+    redraw()
+  }, [redraw, tx, ty, tz, x, y, z])
 
   return (
     <rectAreaLight
@@ -180,12 +184,14 @@ function RectAreaLightNode({ light }: { light: RectAreaLightConfig }) {
 /** three aims from the target's world matrix, so it has to be a real node. */
 function useAimTarget(position: Vec3): THREE.Object3D {
   const target = useMemo(() => new THREE.Object3D(), [])
+  const redraw = useRedraw()
   const [x, y, z] = position
 
   useEffect(() => {
     target.position.set(x, y, z)
     target.updateMatrixWorld()
-  }, [target, x, y, z])
+    redraw()
+  }, [redraw, target, x, y, z])
 
   return target
 }
@@ -202,6 +208,7 @@ function useShadowConfig(
 ): void {
   const { mapSize, bias, normalBias, radius, near, far } = config
   const [left, right, top, bottom] = 'frustum' in config ? config.frustum : [0, 0, 0, 0]
+  const redraw = useRedraw()
 
   useEffect(() => {
     const light = ref.current
@@ -232,18 +239,24 @@ function useShadowConfig(
 
     camera.updateProjectionMatrix()
     shadow.needsUpdate = true
-  }, [ref, mapSize, bias, normalBias, radius, near, far, left, right, top, bottom])
+    redraw()
+  }, [ref, redraw, mapSize, bias, normalBias, radius, near, far, left, right, top, bottom])
 }
 
 let rectAreaUniformsRequested = false
 
 /** RectAreaLight renders black without these, and they are ~247 kB. */
 function useRectAreaLightUniforms(needed: boolean): void {
+  const redraw = useRedraw()
+
   useEffect(() => {
     if (!needed || rectAreaUniformsRequested) return
     rectAreaUniformsRequested = true
     void import('three/examples/jsm/lights/RectAreaLightUniformsLib.js').then((module) => {
       module.RectAreaLightUniformsLib.init()
+      // The light is black until this lands, and it lands after the frame that
+      // asked for it.
+      redraw()
     })
-  }, [needed])
+  }, [needed, redraw])
 }

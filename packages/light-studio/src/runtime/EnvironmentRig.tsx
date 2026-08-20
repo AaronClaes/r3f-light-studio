@@ -4,6 +4,7 @@ import type { Group } from 'three'
 
 import type { EnvironmentConfig, EnvironmentPreset, LightformerConfig } from '../core/schema'
 import { useKeepMaterial } from './keepMaterial'
+import { useRedraw } from './redraw'
 
 /**
  * On its own because it is the only thing on the production path that imports
@@ -40,6 +41,14 @@ export function EnvironmentRig({
   const hasContent = Children.toArray(content).length > 0
 
   const projected = config.ground.enabled && hasImage
+
+  // Every render, no deps: drei writes the environment onto the scene in a
+  // layout effect of its own and never asks for a frame, so on demand a change
+  // of intensity or backdrop — or the texture arriving at all — lands unseen.
+  const redraw = useRedraw()
+  useEffect(() => {
+    redraw()
+  })
 
   // `parseSetup` warns about the lightformers this drops, but it only sees the
   // file. App content arrives as a prop, so it gets the same warning here.
