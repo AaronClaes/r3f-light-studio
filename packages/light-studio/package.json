@@ -1,6 +1,6 @@
 {
   "name": "r3f-light-studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Lighting rigs for react-three-fiber, described by JSON and edited in the browser",
   "keywords": [
     "devtools",
