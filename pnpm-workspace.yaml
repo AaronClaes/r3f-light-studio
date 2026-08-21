@@ -22,5 +22,7 @@ catalog:
   zustand: 5.0.15
 
 # tsup builds the package, and esbuild links its native binary from a postinstall.
-onlyBuiltDependencies:
-  - esbuild
+# `allowBuilds` rather than `onlyBuiltDependencies`, which pnpm 11 removed: an
+# unlisted build script is an error now, not a warning, so a cold install fails.
+allowBuilds:
+  esbuild: true
