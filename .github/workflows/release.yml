@@ -1,0 +1,64 @@
+# Renaming this file breaks publishing: npm's trusted publisher is registered
+# against the repository *and* the workflow filename, and an OIDC exchange from
+# anywhere else is rejected.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # Keeps a release PR open against main, and turns it into a tag and a GitHub
+  # release once it is merged. Nothing is published until that happens.
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      released: ${{ steps.release.outputs['packages/light-studio--release_created'] }}
+      tag: ${{ steps.release.outputs['packages/light-studio--tag_name'] }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: prepare
+    if: needs.prepare.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The whole of the npm credential: a short-lived token minted per run,
+      # traded for a publish. There is no secret in this repository.
+      id-token: write
+    steps:
+      # The tag rather than main, so what is published is exactly what was
+      # released even if something else has landed since.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      # `pnpm publish`, never `npm publish`: `zustand` is declared as
+      # `catalog:` and only pnpm rewrites that to a real range on the way out.
+      # `--no-git-checks` because we are on a detached tag, which pnpm would
+      # otherwise refuse to publish from.
+      - run: pnpm publish --no-git-checks
+        working-directory: packages/light-studio

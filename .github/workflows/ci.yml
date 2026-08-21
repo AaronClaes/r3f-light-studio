@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # No `version`: the action reads `packageManager` from the root
+      # package.json, so the lockfile is never written by a pnpm the repo
+      # did not ask for.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # `check` is lint, format and typecheck; `build` is the thing a release
+      # would actually publish. There are no tests to run yet.
+      - run: pnpm check
+      - run: pnpm build

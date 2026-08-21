@@ -23,6 +23,7 @@
     "directory": "packages/light-studio"
   },
   "files": [
+    "CHANGELOG.md",
     "dist",
     "src"
   ],
