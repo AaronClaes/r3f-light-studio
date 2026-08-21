@@ -5,5 +5,5 @@
   "singleQuote": true,
   "sortImports": true,
   "sortPackageJson": true,
-  "ignorePatterns": ["**/dist/**", "**/.turbo/**", "pnpm-lock.yaml"]
+  "ignorePatterns": ["**/dist/**", "**/.turbo/**", "pnpm-lock.yaml", "**/CHANGELOG.md"]
 }
