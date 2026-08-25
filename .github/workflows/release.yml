@@ -62,3 +62,36 @@ jobs:
       # otherwise refuse to publish from.
       - run: pnpm publish --no-git-checks
         working-directory: packages/light-studio
+
+  # Alongside the publish rather than after it: the demo is worth having even if
+  # npm rejects the package, and neither is worth blocking on the other.
+  deploy:
+    needs: prepare
+    if: needs.prepare.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      # Not secret, but Vercel reads both from the environment and they are the
+      # only thing tying this run to a project.
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # Pinned rather than `@latest`: a release should not change because a tool
+      # published something this morning.
+      - run: pnpm dlx vercel@59.5.0 pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Built here and uploaded as output, so Vercel never installs the
+      # workspace itself — `catalog:` and pnpm 11 are ours to get right.
+      - run: pnpm dlx vercel@59.5.0 build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - run: pnpm dlx vercel@59.5.0 deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
