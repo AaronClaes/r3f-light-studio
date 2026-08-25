@@ -12,3 +12,6 @@ dist/
 
 # Copied from the repo root at pack time, so the npm page has one.
 packages/light-studio/README.md
+
+# `pnpm pack` output, for trying a build in another project before releasing.
+*.tgz

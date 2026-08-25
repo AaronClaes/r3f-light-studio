@@ -31,13 +31,36 @@ export function App() {
 }
 
 /**
- * Sits over the Rim light's target with a handler of its own, the way an app's
- * own clickable prop would. Without the studio taking precedence, this swallows
- * the click and the target handle inside it cannot be grabbed.
+ * Sits over the Rim light's target and behaves the way an app's own draggable
+ * prop does: it grabs on `pointerdown`, captures the pointer, and claims the
+ * click too. That combination is what used to beat the studio — ranking the
+ * handles first only settles a click, and this never asked about the click.
  */
 function Blocker() {
+  const mesh = useRef<Mesh>(null)
+  const held = useRef(false)
+
   return (
-    <mesh onClick={(event) => event.stopPropagation()} position={[0, 1, 2.639]}>
+    <mesh
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => {
+        event.stopPropagation()
+        // What r3f refuses anyone else `stopPropagation` over afterwards. r3f
+        // puts its own capture API on `target` but publishes the DOM event's
+        // type for it, hence the cast; both shapes carry these two methods.
+        ;(event.target as Element).setPointerCapture(event.pointerId)
+        held.current = true
+      }}
+      onPointerMove={(event) => {
+        if (held.current && mesh.current) mesh.current.position.x = event.point.x
+      }}
+      onPointerUp={(event) => {
+        held.current = false
+        ;(event.target as Element).releasePointerCapture(event.pointerId)
+      }}
+      position={[0, 1, 2.639]}
+      ref={mesh}
+    >
       <boxGeometry args={[1.2, 1.2, 1.2]} />
       <meshStandardMaterial color="#ff3366" opacity={0.35} transparent />
     </mesh>

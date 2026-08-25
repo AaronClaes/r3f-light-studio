@@ -7,7 +7,7 @@ import { useStudio, useStudioStore } from './context'
 import { useDrawnLights } from './drawnLights'
 import { dashedCircle, wireCross, wireDiamond } from './helpers/geometry'
 import type { ResolvedHelperStyle } from './palette'
-import { PICK_USER_DATA } from './PickOrder'
+import { PICK_USER_DATA } from './PickGuard'
 
 /** Ring radius as a fraction of the viewport height. */
 const HANDLE_SIZE = 0.015

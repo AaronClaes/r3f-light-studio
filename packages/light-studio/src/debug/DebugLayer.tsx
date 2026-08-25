@@ -23,7 +23,7 @@ import { forHandles, resolveHelperStyle } from './palette'
 import { PropertiesPanel } from './panel/PropertiesPanel'
 import { readVisible, writeVisible } from './persistVisible'
 import { readWorkspaces, writeWorkspaces } from './persistWorkspaces'
-import { PickOrder } from './PickOrder'
+import { PickGuard } from './PickGuard'
 import { findSaveTarget } from './save'
 import { DebugUI } from './ui/DebugUI'
 import { useWorkspaceKeys } from './workspaceKeys'
@@ -186,7 +186,8 @@ function StudioScene({
         lights={lights}
       />
 
-      {/* Safe to unmount: they hold nothing but geometry. */}
+      {/* Safe to unmount: geometry, and one event filter that puts back
+          whatever it found. */}
       {visible ? (
         <>
           {freeCamera ? <EditorCamera /> : null}
@@ -194,7 +195,7 @@ function StudioScene({
           <LightHelpers {...style} />
           <LightHandles {...forHandles(style)} />
           <LightGizmo />
-          <PickOrder />
+          <PickGuard />
         </>
       ) : null}
 

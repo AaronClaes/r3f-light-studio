@@ -218,6 +218,7 @@ Types for the whole schema are exported alongside them, including `LightSetup`,
   limits. Works with any controls library, camera-controls included.
 - The editor is fixed to the viewport rather than laid out in your page, so run
   one `<LightStudio debug />` at a time.
+- While the editor is showing, your own scene stops receiving pointer events.
 - Helpers ignore each light's own colour, so a white light on a white page is
   still visible. As in Blender, the selected light is drawn in an accent colour
   and every other one in black. Which light is which is the outliner swatch's
