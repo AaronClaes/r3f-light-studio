@@ -20,12 +20,27 @@ export function App() {
         </LightStudio>
 
         <Subjects />
+        <Blocker />
       </Canvas>
 
       <p style={panelStyle}>
         Press <kbd style={kbdStyle}>F2</kbd> for the light studio
       </p>
     </>
+  )
+}
+
+/**
+ * Sits over the Rim light's target with a handler of its own, the way an app's
+ * own clickable prop would. Without the studio taking precedence, this swallows
+ * the click and the target handle inside it cannot be grabbed.
+ */
+function Blocker() {
+  return (
+    <mesh onClick={(event) => event.stopPropagation()} position={[0, 1, 2.639]}>
+      <boxGeometry args={[1.2, 1.2, 1.2]} />
+      <meshStandardMaterial color="#ff3366" opacity={0.35} transparent />
+    </mesh>
   )
 }
 

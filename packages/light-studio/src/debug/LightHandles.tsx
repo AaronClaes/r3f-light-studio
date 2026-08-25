@@ -7,6 +7,7 @@ import { useStudio, useStudioStore } from './context'
 import { useDrawnLights } from './drawnLights'
 import { dashedCircle, wireCross, wireDiamond } from './helpers/geometry'
 import type { ResolvedHelperStyle } from './palette'
+import { PICK_USER_DATA } from './PickOrder'
 
 /** Ring radius as a fraction of the viewport height. */
 const HANDLE_SIZE = 0.015
@@ -119,6 +120,7 @@ function Handle({ id, field, point, color, idleColor, idleOpacity }: HandleProps
           setHovered(true)
         }}
         scale={PICK_SCALE}
+        userData={PICK_USER_DATA}
       >
         <sphereGeometry args={[1, 12, 8]} />
         {/* Not `visible={false}`, which would leave the raycast. Writing

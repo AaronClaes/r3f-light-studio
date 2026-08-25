@@ -23,6 +23,7 @@ import { forHandles, resolveHelperStyle } from './palette'
 import { PropertiesPanel } from './panel/PropertiesPanel'
 import { readVisible, writeVisible } from './persistVisible'
 import { readWorkspaces, writeWorkspaces } from './persistWorkspaces'
+import { PickOrder } from './PickOrder'
 import { findSaveTarget } from './save'
 import { DebugUI } from './ui/DebugUI'
 import { useWorkspaceKeys } from './workspaceKeys'
@@ -193,6 +194,7 @@ function StudioScene({
           <LightHelpers {...style} />
           <LightHandles {...forHandles(style)} />
           <LightGizmo />
+          <PickOrder />
         </>
       ) : null}
 
