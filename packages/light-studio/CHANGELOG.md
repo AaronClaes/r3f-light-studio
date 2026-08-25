@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/AaronClaes/r3f-light-studio/compare/v0.2.0...v0.2.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* give the editor's handles first claim on a click ([f88d574](https://github.com/AaronClaes/r3f-light-studio/commit/f88d57474765082741b1bc866f5797708bb8b372))
+
 ## [0.2.0](https://github.com/AaronClaes/r3f-light-studio/compare/v0.1.0...v0.2.0) (2026-08-21)
 
 
