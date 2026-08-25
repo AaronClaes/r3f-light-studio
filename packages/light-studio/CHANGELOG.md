@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/AaronClaes/r3f-light-studio/compare/v0.2.1...v0.3.0) (2026-08-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* while the editor is showing, your own scene no longer receives pointer events.
+
+### Bug Fixes
+
+* hold the scene's pointer while the editor is open ([d65eb61](https://github.com/AaronClaes/r3f-light-studio/commit/d65eb61822c5b12173ff8d929cd01b8b0a2622c9))
+
 ## [0.2.1](https://github.com/AaronClaes/r3f-light-studio/compare/v0.2.0...v0.2.1) (2026-08-25)
 
 
