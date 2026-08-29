@@ -2,15 +2,23 @@ import { useFrame } from '@react-three/fiber'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 
-import type { Vec3, VectorField } from '../core/schema'
+import type { LightType, Vec3, VectorField } from '../core/schema'
+import type { LightIcons } from '../runtime/helperStyle'
 import { useStudio, useStudioStore } from './context'
 import { useDrawnLights } from './drawnLights'
 import { dashedCircle, wireCross, wireDiamond } from './helpers/geometry'
+import { lightGlyph } from './helpers/glyphs'
 import type { ResolvedHelperStyle } from './palette'
 import { PICK_USER_DATA } from './PickGuard'
 
 /** Ring radius as a fraction of the viewport height. */
 const HANDLE_SIZE = 0.015
+/**
+ * Glyphs are drawn larger, and the pick sphere with them. A ring can be small
+ * because it is one big thin circle; a pictogram has to carry a silhouette, and
+ * at the ring's size a bulb is a blob and the panel's rays close up entirely.
+ */
+const GLYPH_SIZE = 0.028
 /** The centre marker, relative to the ring. */
 const CENTRE_RADIUS = 0.3
 /** The pick sphere covers the ring from any angle, with a little margin. */
@@ -24,7 +32,7 @@ const SELECTED_SCALE = 1.25
  * so a dozen of them stack into one blob there, and the beam already shows
  * where a light points.
  */
-export function LightHandles({ color, idleColor, idleOpacity }: ResolvedHelperStyle) {
+export function LightHandles({ color, icons, idleColor, idleOpacity }: ResolvedHelperStyle) {
   const lights = useDrawnLights()
   const selectedId = useStudio((state) => state.selectedId)
   const store = useStudioStore()
@@ -47,20 +55,24 @@ export function LightHandles({ color, idleColor, idleOpacity }: ResolvedHelperSt
             <Handle
               color={color}
               field="position"
+              icons={icons}
               id={light.id}
               idleColor={idleColor}
               idleOpacity={idleOpacity}
               point={light.position}
+              type={light.type}
             />
           ) : null}
           {'target' in light && light.id === selectedId ? (
             <Handle
               color={color}
               field="target"
+              icons={icons}
               id={light.id}
               idleColor={idleColor}
               idleOpacity={idleOpacity}
               point={light.target}
+              type={light.type}
             />
           ) : null}
         </Fragment>
@@ -71,11 +83,12 @@ export function LightHandles({ color, idleColor, idleOpacity }: ResolvedHelperSt
 
 interface HandleProps extends ResolvedHelperStyle {
   id: string
+  type: LightType
   field: VectorField
   point: Vec3
 }
 
-function Handle({ id, field, point, color, idleColor, idleOpacity }: HandleProps) {
+function Handle({ id, type, field, point, color, icons, idleColor, idleOpacity }: HandleProps) {
   const group = useRef<THREE.Group>(null)
   const store = useStudioStore()
   const { lightSelected, dragged } = useStudio((state) => ({
@@ -84,14 +97,14 @@ function Handle({ id, field, point, color, idleColor, idleOpacity }: HandleProps
   }))
   const [hovered, setHovered] = useState(false)
 
-  const marks = useMemo(() => marksFor(field), [field])
+  const art = useMemo(() => artFor(icons, field, type), [icons, field, type])
   useEffect(() => {
     return () => {
-      for (const mark of marks) mark.dispose()
+      for (const part of art.parts) part.dispose()
     }
-  }, [marks])
+  }, [art])
 
-  useBillboard(group, HANDLE_SIZE)
+  useBillboard(group, art.filled ? GLYPH_SIZE : HANDLE_SIZE)
   usePointerCursor(hovered)
 
   const active = lightSelected || hovered
@@ -99,14 +112,17 @@ function Handle({ id, field, point, color, idleColor, idleOpacity }: HandleProps
   return (
     <group ref={group} position={point}>
       <group scale={dragged ? SELECTED_SCALE : 1}>
-        {marks.map((mark) => (
-          <Mark
-            color={active ? color : idleColor}
-            geometry={mark}
-            key={mark.uuid}
-            opacity={active ? 1 : idleOpacity}
-          />
-        ))}
+        {art.parts.map((part) => {
+          const Part = art.filled ? Glyph : Mark
+          return (
+            <Part
+              color={active ? color : idleColor}
+              geometry={part}
+              key={part.uuid}
+              opacity={active ? 1 : idleOpacity}
+            />
+          )
+        })}
       </group>
 
       <mesh
@@ -132,22 +148,36 @@ function Handle({ id, field, point, color, idleColor, idleOpacity }: HandleProps
   )
 }
 
-/** A source is Blender's dashed ring around a diamond; a target is a bare reticle. */
-function marksFor(field: VectorField): THREE.BufferGeometry[] {
-  if (field === 'target') return [wireCross(CENTRE_RADIUS, 1)]
-  return [dashedCircle(1), wireDiamond(CENTRE_RADIUS)]
+/** Lines or filled shapes. A handle is drawn wholly in one mode or the other. */
+interface HandleArt {
+  filled: boolean
+  parts: THREE.BufferGeometry[]
 }
 
-/** Never occluded, matching the pick sphere: what you can click, you can see. */
-function Mark({
-  geometry,
-  color,
-  opacity,
-}: {
+/**
+ * A source is Blender's dashed ring around a diamond, or the light type's own
+ * pictogram; a target is a bare reticle either way. A target is a point in
+ * space rather than a light, so there is no type for a glyph to say.
+ */
+function artFor(icons: LightIcons, field: VectorField, type: LightType): HandleArt {
+  if (field === 'target') return { filled: false, parts: [wireCross(CENTRE_RADIUS, 1)] }
+
+  if (icons === 'glyph') {
+    const glyph = lightGlyph(type)
+    if (glyph) return { filled: true, parts: [glyph] }
+  }
+
+  return { filled: false, parts: [dashedCircle(1), wireDiamond(CENTRE_RADIUS)] }
+}
+
+interface PartProps {
   geometry: THREE.BufferGeometry
   color: string
   opacity: number
-}) {
+}
+
+/** Never occluded, matching the pick sphere: what you can click, you can see. */
+function Mark({ geometry, color, opacity }: PartProps) {
   return (
     <lineSegments geometry={geometry} renderOrder={1}>
       <lineBasicMaterial
@@ -159,6 +189,22 @@ function Mark({
         transparent
       />
     </lineSegments>
+  )
+}
+
+/** The same treatment as `Mark`, filled. The billboard keeps its front to the camera. */
+function Glyph({ geometry, color, opacity }: PartProps) {
+  return (
+    <mesh geometry={geometry} renderOrder={1}>
+      <meshBasicMaterial
+        allowOverride={false}
+        color={color}
+        depthTest={false}
+        opacity={opacity}
+        toneMapped={false}
+        transparent
+      />
+    </mesh>
   )
 }
 

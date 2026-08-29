@@ -1,4 +1,4 @@
-import type { HelperStyle } from '../runtime/helperStyle'
+import type { HelperStyle, LightIcons } from '../runtime/helperStyle'
 
 /** The active light. */
 const DEFAULT_COLOR = '#d97706'
@@ -19,10 +19,14 @@ const DEFAULT_IDLE_OPACITY = 0.75
  */
 const HANDLE_IDLE_SCALE = 0.8
 
+/** The mark that has always been drawn, so an upgrade changes nothing on screen. */
+const DEFAULT_ICONS: LightIcons = 'wireframe'
+
 export interface ResolvedHelperStyle {
   color: string
   idleColor: string
   idleOpacity: number
+  icons: LightIcons
 }
 
 export function resolveHelperStyle(style: HelperStyle = {}): ResolvedHelperStyle {
@@ -30,6 +34,7 @@ export function resolveHelperStyle(style: HelperStyle = {}): ResolvedHelperStyle
     color: style.color ?? DEFAULT_COLOR,
     idleColor: style.idleColor ?? DEFAULT_IDLE_COLOR,
     idleOpacity: style.idleOpacity ?? DEFAULT_IDLE_OPACITY,
+    icons: style.icons ?? DEFAULT_ICONS,
   }
 }
 
