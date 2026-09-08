@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import * as THREE from 'three'
 
 import type {
@@ -14,7 +14,15 @@ import type {
 import { useStudio } from '../context'
 import { useDrawnLights } from '../drawnLights'
 import type { ResolvedHelperStyle } from '../palette'
-import { wireBox, wireCone, wireEllipse, wireLine, wireRectangle, wireSphere } from './geometry'
+import {
+  wireBox,
+  wireCone,
+  wireEllipse,
+  wireLine,
+  wireRectangle,
+  wireSphere,
+  type WirePart,
+} from './geometry'
 
 /**
  * What a light *does*: where it points, how far it reaches, how wide it
@@ -95,7 +103,7 @@ function HemisphereHelper({ light, fade, color }: HelperProps<HemisphereLightCon
   // `position` is the sky direction, so this is the sky-to-ground axis.
   const axis = useMemo(() => wireLine(light.position, [0, 0, 0]), [light.position])
 
-  return <Wire color={color} geometry={axis} opacity={opacityOf('secondary', fade)} />
+  return <Wire color={color} opacity={opacityOf('secondary', fade)} positions={axis} />
 }
 
 function DirectionalHelper({ light, fade, color }: HelperProps<DirectionalLightConfig>) {
@@ -104,7 +112,7 @@ function DirectionalHelper({ light, fade, color }: HelperProps<DirectionalLightC
   return (
     <>
       <Aimed position={light.position} target={light.target}>
-        <Wire color={color} geometry={plate} opacity={opacityOf('primary', fade)} />
+        <Wire color={color} opacity={opacityOf('primary', fade)} positions={plate} />
       </Aimed>
       <Beam color={color} fade={fade} from={light.position} to={light.target} />
     </>
@@ -122,7 +130,7 @@ function PointHelper({ light, fade, color }: HelperProps<PointLightConfig>) {
 
   return (
     <group position={light.position}>
-      <Wire color={color} geometry={range} opacity={opacityOf('range', fade)} />
+      <Wire color={color} opacity={opacityOf('range', fade)} positions={range} />
     </group>
   )
 }
@@ -142,7 +150,7 @@ function SpotHelper({ light, fade, color }: HelperProps<SpotLightConfig>) {
   return (
     <>
       <Aimed position={light.position} target={light.target}>
-        <Wire color={color} geometry={cone} opacity={opacityOf('primary', fade)} />
+        <Wire color={color} opacity={opacityOf('primary', fade)} positions={cone} />
       </Aimed>
       <Beam color={color} fade={fade} from={light.position} to={light.target} />
     </>
@@ -155,7 +163,7 @@ function RectAreaHelper({ light, fade, color }: HelperProps<RectAreaLightConfig>
   return (
     <>
       <Aimed position={light.position} target={light.target}>
-        <Wire color={color} geometry={shape} opacity={opacityOf('primary', fade)} />
+        <Wire color={color} opacity={opacityOf('primary', fade)} positions={shape} />
       </Aimed>
       <Beam color={color} fade={fade} from={light.position} to={light.target} />
     </>
@@ -168,14 +176,14 @@ function RectAreaHelper({ light, fade, color }: HelperProps<RectAreaLightConfig>
  */
 function LightformerHelper({ light, fade, color }: HelperProps<LightformerConfig>) {
   const { form, width, height } = light
-  const shape = useMemo(() => formGeometry(form, width, height), [form, width, height])
+  const shape = useMemo(() => formOutline(form, width, height), [form, width, height])
   const opacity = opacityOf('primary', fade)
 
   return (
     <>
       <Aimed position={light.position} target={light.target}>
-        {shape.map((geometry) => (
-          <Wire color={color} geometry={geometry} key={geometry.uuid} opacity={opacity} />
+        {shape.map(({ name, positions }) => (
+          <Wire color={color} key={name} opacity={opacity} positions={positions} />
         ))}
       </Aimed>
       <Beam color={color} fade={fade} from={light.position} to={light.target} />
@@ -183,32 +191,31 @@ function LightformerHelper({ light, fade, color }: HelperProps<LightformerConfig
   )
 }
 
-function formGeometry(
-  form: LightformerConfig['form'],
-  width: number,
-  height: number,
-): THREE.BufferGeometry[] {
+function formOutline(form: LightformerConfig['form'], width: number, height: number): WirePart[] {
   switch (form) {
     case 'circle':
-      return [wireEllipse(width, height)]
+      return [{ name: 'rim', positions: wireEllipse(width, height) }]
 
     // drei's ring is a disc with the middle half missing.
     case 'ring':
-      return [wireEllipse(width, height), wireEllipse(width * RING_INNER, height * RING_INNER)]
+      return [
+        { name: 'rim', positions: wireEllipse(width, height) },
+        { name: 'hole', positions: wireEllipse(width * RING_INNER, height * RING_INNER) },
+      ]
 
     // The schema has no depth, so the renderer passes 1 for the third axis.
     case 'box':
-      return [wireBox(width, height, 1)]
+      return [{ name: 'edges', positions: wireBox(width, height, 1) }]
 
     case 'rect':
-      return [wireRectangle(width, height)]
+      return [{ name: 'rim', positions: wireRectangle(width, height) }]
   }
 }
 
 function Beam({ from, to, color, fade }: { from: Vec3; to: Vec3; color: string; fade: number }) {
   const line = useMemo(() => wireLine(from, to), [from, to])
 
-  return <Wire color={color} geometry={line} opacity={opacityOf('secondary', fade)} />
+  return <Wire color={color} opacity={opacityOf('secondary', fade)} positions={line} />
 }
 
 const UP = new THREE.Vector3(0, 1, 0)
@@ -239,20 +246,30 @@ function Aimed({
   )
 }
 
-/** Disposes the geometry it is given, so callers only have to `useMemo` it. */
+/**
+ * Draws vertex pairs, and owns nothing: the geometry is r3f's, so it is disposed
+ * when this really unmounts rather than when an effect happens to be torn down.
+ * A `useEffect` cleanup cannot tell the difference — StrictMode's remount runs
+ * one without re-rendering — and a disposed geometry that is still on screen
+ * takes the whole frame down under WebGPU.
+ */
 function Wire({
-  geometry,
+  positions,
   color,
   opacity,
 }: {
-  geometry: THREE.BufferGeometry
+  positions: Float32Array
   color: string
   opacity: number
 }) {
-  useEffect(() => () => geometry.dispose(), [geometry])
-
   return (
-    <lineSegments geometry={geometry}>
+    // Unculled because the geometry outlives any one `positions`: swapping the
+    // attribute leaves three's bounding sphere behind, and 64 vertices are
+    // cheaper than a helper that goes missing when a light is resized.
+    <lineSegments frustumCulled={false}>
+      <bufferGeometry>
+        <bufferAttribute args={[positions, 3]} attach="attributes-position" />
+      </bufferGeometry>
       {/* The instrument you read the light with, not something lit by it. */}
       <lineBasicMaterial
         allowOverride={false}

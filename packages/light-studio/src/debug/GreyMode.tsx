@@ -1,5 +1,5 @@
 import { useThree } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 import { Color, DoubleSide, MeshStandardMaterial } from 'three'
 
 import { useRedraw } from '../runtime/redraw'
@@ -17,11 +17,15 @@ export function GreyMode() {
   const grey = useStudio((state) => state.grey)
   const redraw = useRedraw()
 
-  const material = useMemo(() => makeGrey(), [])
-  useEffect(() => () => material.dispose(), [material])
-
   useEffect(() => {
     if (!grey) return
+
+    // Built here rather than memoised: the material must not outlive the effect
+    // that installed it, and it must not be disposed while the effect is live.
+    // StrictMode's mount-cleanup-mount cycle breaks any arrangement where those
+    // two lifetimes are kept apart, and a disposed override material takes down
+    // every mesh in the scene, not just the studio's own.
+    const material = makeGrey()
 
     // Restored rather than nulled: an app may have one of its own.
     const previous = scene.overrideMaterial
@@ -29,9 +33,10 @@ export function GreyMode() {
     redraw()
     return () => {
       scene.overrideMaterial = previous
+      material.dispose()
       redraw()
     }
-  }, [grey, material, redraw, scene])
+  }, [grey, redraw, scene])
 
   return null
 }
