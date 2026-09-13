@@ -6,7 +6,7 @@ import type { LightType, Vec3, VectorField } from '../core/schema'
 import type { LightIcons } from '../runtime/helperStyle'
 import { useStudio, useStudioStore } from './context'
 import { useDrawnLights } from './drawnLights'
-import { dashedCircle, wireCross, wireDiamond } from './helpers/geometry'
+import { dashedCircle, wireCross, wireDiamond, type WirePart } from './helpers/geometry'
 import { lightGlyph } from './helpers/glyphs'
 import type { ResolvedHelperStyle } from './palette'
 import { PICK_USER_DATA } from './PickGuard'
@@ -97,12 +97,9 @@ function Handle({ id, type, field, point, color, icons, idleColor, idleOpacity }
   }))
   const [hovered, setHovered] = useState(false)
 
+  // Shapes and positions, not geometries: r3f owns the geometry a handle draws,
+  // so nothing here has to guess when a disposal is safe. See `Wire`.
   const art = useMemo(() => artFor(icons, field, type), [icons, field, type])
-  useEffect(() => {
-    return () => {
-      for (const part of art.parts) part.dispose()
-    }
-  }, [art])
 
   useBillboard(group, art.filled ? GLYPH_SIZE : HANDLE_SIZE)
   usePointerCursor(hovered)
@@ -112,17 +109,22 @@ function Handle({ id, type, field, point, color, icons, idleColor, idleOpacity }
   return (
     <group ref={group} position={point}>
       <group scale={dragged ? SELECTED_SCALE : 1}>
-        {art.parts.map((part) => {
-          const Part = art.filled ? Glyph : Mark
-          return (
-            <Part
+        {art.filled ? (
+          <Glyph
+            color={active ? color : idleColor}
+            opacity={active ? 1 : idleOpacity}
+            shapes={art.shapes}
+          />
+        ) : (
+          art.parts.map(({ name, positions }) => (
+            <Mark
               color={active ? color : idleColor}
-              geometry={part}
-              key={part.uuid}
+              key={name}
               opacity={active ? 1 : idleOpacity}
+              positions={positions}
             />
-          )
-        })}
+          ))
+        )}
       </group>
 
       <mesh
@@ -149,10 +151,7 @@ function Handle({ id, type, field, point, color, icons, idleColor, idleOpacity }
 }
 
 /** Lines or filled shapes. A handle is drawn wholly in one mode or the other. */
-interface HandleArt {
-  filled: boolean
-  parts: THREE.BufferGeometry[]
-}
+type HandleArt = { filled: false; parts: WirePart[] } | { filled: true; shapes: THREE.Shape[] }
 
 /**
  * A source is Blender's dashed ring around a diamond, or the light type's own
@@ -160,26 +159,44 @@ interface HandleArt {
  * space rather than a light, so there is no type for a glyph to say.
  */
 function artFor(icons: LightIcons, field: VectorField, type: LightType): HandleArt {
-  if (field === 'target') return { filled: false, parts: [wireCross(CENTRE_RADIUS, 1)] }
+  if (field === 'target') {
+    return { filled: false, parts: [{ name: 'reticle', positions: wireCross(CENTRE_RADIUS, 1) }] }
+  }
 
   if (icons === 'glyph') {
     const glyph = lightGlyph(type)
-    if (glyph) return { filled: true, parts: [glyph] }
+    if (glyph) return { filled: true, shapes: glyph }
   }
 
-  return { filled: false, parts: [dashedCircle(1), wireDiamond(CENTRE_RADIUS)] }
+  return {
+    filled: false,
+    parts: [
+      { name: 'ring', positions: dashedCircle(1) },
+      { name: 'centre', positions: wireDiamond(CENTRE_RADIUS) },
+    ],
+  }
 }
 
-interface PartProps {
-  geometry: THREE.BufferGeometry
+interface PaintProps {
   color: string
   opacity: number
 }
 
+interface MarkProps extends PaintProps {
+  positions: Float32Array
+}
+
+interface GlyphProps extends PaintProps {
+  shapes: THREE.Shape[]
+}
+
 /** Never occluded, matching the pick sphere: what you can click, you can see. */
-function Mark({ geometry, color, opacity }: PartProps) {
+function Mark({ positions, color, opacity }: MarkProps) {
   return (
-    <lineSegments geometry={geometry} renderOrder={1}>
+    <lineSegments renderOrder={1}>
+      <bufferGeometry>
+        <bufferAttribute args={[positions, 3]} attach="attributes-position" />
+      </bufferGeometry>
       <lineBasicMaterial
         allowOverride={false}
         color={color}
@@ -193,9 +210,10 @@ function Mark({ geometry, color, opacity }: PartProps) {
 }
 
 /** The same treatment as `Mark`, filled. The billboard keeps its front to the camera. */
-function Glyph({ geometry, color, opacity }: PartProps) {
+function Glyph({ shapes, color, opacity }: GlyphProps) {
   return (
-    <mesh geometry={geometry} renderOrder={1}>
+    <mesh renderOrder={1}>
+      <shapeGeometry args={[shapes]} />
       <meshBasicMaterial
         allowOverride={false}
         color={color}

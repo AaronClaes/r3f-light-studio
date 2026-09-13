@@ -137,15 +137,12 @@ function dome(): THREE.Shape[] {
 }
 
 /**
- * `null` where a type has no place to draw one. Ambient light has no position,
+ * Shapes rather than a `ShapeGeometry`: a shape is arithmetic, so the handle can
+ * memoise it and leave the geometry — the part with buffers to dispose — to r3f.
+ * `null` where a type has no place to draw one: ambient light has no position,
  * so it never gets a handle to put a glyph on.
  */
-export function lightGlyph(type: LightType): THREE.BufferGeometry | null {
-  const shapes = shapesFor(type)
-  return shapes ? new THREE.ShapeGeometry(shapes) : null
-}
-
-function shapesFor(type: LightType): THREE.Shape[] | null {
+export function lightGlyph(type: LightType): THREE.Shape[] | null {
   switch (type) {
     case 'ambient':
       return null
