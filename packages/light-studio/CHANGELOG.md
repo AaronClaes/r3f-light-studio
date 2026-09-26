@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/AaronClaes/r3f-light-studio/compare/v0.3.0...v0.4.0) (2026-09-13)
+
+
+### Features
+
+* draw handles as the light's own glyph when asked ([6becb82](https://github.com/AaronClaes/r3f-light-studio/commit/6becb821e4e895147bcd8f9c1dc79ea7049d7e41))
+
+
+### Bug Fixes
+
+* let r3f own the helpers' geometry, so nothing disposes what is drawn ([#5](https://github.com/AaronClaes/r3f-light-studio/issues/5)) ([b810cd9](https://github.com/AaronClaes/r3f-light-studio/commit/b810cd9c87cbb6781df2debe03b610160b2d12f6))
+
 ## [0.3.0](https://github.com/AaronClaes/r3f-light-studio/compare/v0.2.1...v0.3.0) (2026-08-25)
 
 
